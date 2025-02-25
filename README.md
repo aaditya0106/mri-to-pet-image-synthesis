@@ -17,7 +17,7 @@ This project aims to develop a deep learning model to synthesize PET images from
     ```
 
 ## Usage
-1. Prepare your preprocessed MRI data and place it in the `data/mri` directory.
+1. Prepare your MRI data and place it in the `data/mri` directory.
 
 2. Train the model:
     ```sh
