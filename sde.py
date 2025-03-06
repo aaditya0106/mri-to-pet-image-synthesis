@@ -8,7 +8,7 @@ class VESDE(tf.keras.Model):
     """
     Variance Exploding Stochastic Differential Equation based Diffusion Model
     """
-    def __init__(self):
+    def __init__(self, pet_score_func, mri_score_func):
         super(VESDE, self).__init__()
         self.T = 'to be determined'
         self.N = config.Model.num_scales
@@ -17,8 +17,8 @@ class VESDE(tf.keras.Model):
         self.sigmas = get_beta_schedule('exponential')
 
         # Define score functions for MRI and PET modalities
-        self.mri_score_func = lambda x, t: x  # Placeholder function for MRI score
-        self.pet_score_func = lambda x, t: x  # Placeholder function for PET score
+        self.mri_score_func = mri_score_func
+        self.pet_score_func = pet_score_func
 
     def marginal_probability(self, x, t):
         """
@@ -84,11 +84,18 @@ class VESDE(tf.keras.Model):
     def fwd_discrete(self, x, t):
         """
         Discretize the SDE in the form: x_{i+1} = x_i + f_i(x_i) + g_i z_i
+        Where:
+            f_i(x_i) = 0 (drift term)
+            g_i = sqrt(sigma_{i+1}^2 - sigma_i^2) is the diffusion coefficient
         """
-        dt = 1.0 / self.N # small time step for discretization
-        drift, diffusion = self.fwd_sde(x, t) # computes drift and diffusion
-        f = drift * dt # forward step using drift
-        g = diffusion * tf.sqrt(dt) # noise scaling term
+        timestep = tf.cast(t * (self.N - 1) / self.T, tf.float64)
+        sigma = tf.gather(self.sigmas, timestep)
+        next_sigma = tf.gather(self.sigmas, tf.minimum(timestep + 1, self.N - 1))
+
+        f = tf.zeros_like(x)
+        g = tf.sqrt(next_sigma ** 2 - sigma ** 2)
+        # z = tf.random.normal(shape=tf.shape(x), dtype=x.dtype)
+        # x = x + g * z
         return f, g
     
     def reverse_sde(self, x, t, mri):
@@ -117,13 +124,16 @@ class VESDE(tf.keras.Model):
     def reverse_discrete(self, x, t, mri):
         """
         Discretizes the reverse SDE for stable numerical integration.
-        x_i = x_{i+1} - g_{i+1}^2 delta_x log p_{t}(x_{i+1}, y) + g_{i+1} z_{i+1}
+        x_i = x_{i+1} - g_{i+1}^2 s_theta(x_{i+1}, y, i+1) + g_{i+1} z_{i+1}
+        Where:
+            s_theta(x, y, t) is the score function
+            g_i = sqrt(sigma_i^2 - sigma_{i-1}^2) is the diffusion coefficient
         """
         timestep = tf.cast(t * (self.N - 1) / self.T, tf.float64)
         sigma = tf.gather(self.sigmas, timestep)
         adjacent_sigma = tf.gather(self.sigmas, tf.maximum(timestep - 1, 0))
 
-        g_z = tf.sqrt(sigma ** 2 - adjacent_sigma ** 2) # compute diffusion coefficient g_i = sqrt(sigma_i^2 - sigma_{i-1}^2)
+        g_i = tf.sqrt(sigma ** 2 - adjacent_sigma ** 2) # compute diffusion coefficient
 
         pet_grad = self.pet_score_func(x, t) # compute PET score function gradient
         mri_grad = self.mri_score_func(x, t) # compute MRI score function
@@ -135,9 +145,9 @@ class VESDE(tf.keras.Model):
         mri_correction = tape.gradient(mri_loss, x)
 
         # compute reverse drift term using both PET and MRI gradients
-        rev_f = -g_z[:, None, None, None] ** 2 * (pet_grad - mri_correction) * (0.5 if self.deterministic_sampling else 1.0)
+        rev_f = -g_i[:, None, None, None] ** 2 * (pet_grad - mri_correction) * (0.5 if self.deterministic_sampling else 1.0)
 
         z = tf.random.normal(tf.shape(x), dtype=x.dtype)
         x_mean = x - rev_f
-        x = x_mean + g_z[:, None, None, None] * z # add noise only if not in deterministic mode
+        x = x_mean + g_i[:, None, None, None] * z # add noise only if not in deterministic mode
         return x, x_mean
