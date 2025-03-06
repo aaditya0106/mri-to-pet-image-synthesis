@@ -17,7 +17,7 @@ This project aims to develop a deep learning model to synthesize PET images from
     ```
 
 ## Usage
-1. Prepare your MRI data and place it in the `data/mri` directory.
+1. Prepare your MRI data and place it in the `../t1_flair_asl_fdg_preprocessed/` directory.
 
 2. Train the model:
     ```sh

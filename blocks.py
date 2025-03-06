@@ -4,7 +4,7 @@ import tensorflow as tf
 from functools import partial
 import config
 
-class TimeEmbeddingBlock(tf.keraas.layers.Layer):
+class TimeEmbeddingBlock(tf.keras.layers.Layer):
     """
     Processes timestep labels with a two-layer MLP and returns a time embedding
     """
