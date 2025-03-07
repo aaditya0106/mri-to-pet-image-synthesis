@@ -14,12 +14,13 @@ class TimeEmbeddingBlock(tf.keras.layers.Layer):
         self.activation_fn = activation_fn
         if self.conditional:
             self.dense0 = tf.keras.layers.Dense(
-                4*self.nf,
-                kernel_initializer=default_init()((nf, 4*nf)),
+                4*nf,
+                kernel_initializer=default_init(),#((nf, 4*nf)),
                 bias_initializer=tf.keras.initializers.Zeros()
             )
             self.dense1 = tf.keras.layers.Dense(
-                kernel_initializer=default_init()((4*nf, 4*nf)),
+                self.dense0.units,
+                kernel_initializer=default_init(),#((4*nf, 4*nf)),
                 bias_initializer=tf.keras.initializers.Zeros()
             )
 
