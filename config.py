@@ -1,5 +1,4 @@
 from enum import Enum
-
 seed = 42
 
 class Data(Enum):
