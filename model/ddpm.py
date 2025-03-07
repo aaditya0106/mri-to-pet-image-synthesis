@@ -40,5 +40,4 @@ class DDPM(tf.keras.Model):
             used_sigmas = tf.gather(self.sigmas, labels) # select sigma corresponding to each label
             used_sigmas = tf.reshape(used_sigmas, [-1, 1, 1, 1])
             h = h / used_sigmas
-
         return h
