@@ -4,3 +4,5 @@ layers_extra.py
 data_explore.ipynb
 .ipynb_checkpoints
 __pycache__
+t1_flair_asl_fdg_preprocessed
+test.ipynb

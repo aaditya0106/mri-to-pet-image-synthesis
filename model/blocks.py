@@ -1,5 +1,5 @@
 from utils import default_init
-import layers as l
+import model.layers as l
 import tensorflow as tf
 from functools import partial
 import config
@@ -40,21 +40,21 @@ class DownsamplingBlock(tf.keras.layers.Layer):
     def __init__(self, nf, activation_fn):
         super(DownsamplingBlock, self).__init__()
         self.nf = nf
-        self.num_resnet_blocks = config.Model.num_res_blocks
-        self.attn_resolutions  = config.Model.attn_resolutions
-        self.resamp_with_conv  = config.Model.resamp_with_conv
-        self.channel_mult      = config.Model.channel_mult # channel multiplier for each resolution channel
+        self.num_resnet_blocks = config.Model.num_resnet_blocks.value
+        self.attn_resolutions  = config.Model.attn_resolutions.value
+        self.resamp_with_conv  = config.Model.resamp_with_conv.value
+        self.channel_mult      = config.Model.channel_mult.value # channel multiplier for each resolution channel
         self.num_resolutions   = len(self.channel_mult)    # number of times downsample
-        self.all_resolutions   = [config.Data.image_size // (2 ** i) for i in range(len(self.channel_mult))]
+        self.all_resolutions   = [config.Data.image_size.value // (2 ** i) for i in range(len(self.channel_mult))]
         self.has_channels      = [nf] # Stores channels at each intermediate stage
 
-        self.ResnetBlockPartial = partial(l.ResnetBlockDDPM, activation=activation_fn, time_emb_dim=4*nf, dropout=config.model.dropout)
+        self.ResnetBlockPartial = partial(l.ResnetBlockDDPM, activation=activation_fn, time_emb_dim=4*nf, dropout=config.Model.dropout.value)
         self.AttnBlockPartial   = partial(l.Attention)
         self.create_block()
         
     def create_block(self):
         # Initial convolution on input image
-        self.layers_list  = [l.Conv3x3(self.nf)]
+        self.layers_list = [l.Conv3x3(self.nf)]
         in_channel = self.nf
 
         # loop over each resolution level
@@ -92,9 +92,9 @@ class BottleneckBlock(tf.keras.layers.Layer):
     """
     def __init__(self, nf, activation_fn):
         super(BottleneckBlock, self).__init__()
-        self.resnet1 = l.ResnetBlockDDPM(nf, nf, activation=activation_fn, time_emb_dim=4*nf, dropout=config.Model.dropout)
+        self.resnet1 = l.ResnetBlockDDPM(nf, nf, activation=activation_fn, time_emb_dim=4*nf, dropout=config.Model.dropout.value)
         self.attn    = l.Attention(nf)
-        self.resnet2 = l.ResnetBlockDDPM(nf, nf, activation=activation_fn, time_emb_dim=4*nf, dropout=config.Model.dropout)
+        self.resnet2 = l.ResnetBlockDDPM(nf, nf, activation=activation_fn, time_emb_dim=4*nf, dropout=config.Model.dropout.value)
 
     def call(self, x, time_emb, training=False):
         h = self.resnet1(x, time_emb, training=training)
@@ -113,15 +113,15 @@ class UpsampleBlock(tf.keras.layers.Layer):
     def __init__(self, nf, activation_fn):
         super(UpsampleBlock, self).__init__()
         self.nf = nf
-        self.num_resnet_blocks = config.Model.num_resnet_blocks
-        self.attn_resolutions  = config.Model.attn_resolutions
-        self.resamp_with_conv  = config.Model.resamp_with_conv
-        self.channel_mult      = config.Model.channel_mult # channel multiplier for each resolution channel
+        self.num_resnet_blocks = config.Model.num_resnet_blocks.value
+        self.attn_resolutions  = config.Model.attn_resolutions.value
+        self.resamp_with_conv  = config.Model.resamp_with_conv.value
+        self.channel_mult      = config.Model.channel_mult.value # channel multiplier for each resolution channel
         self.num_resolutions   = len(self.channel_mult)    # number of times downsample
-        self.all_resolutions   = [config.Data.image_size // (2 ** i) for i in range(len(self.channel_mult))]
+        self.all_resolutions   = [config.Data.image_size.value // (2 ** i) for i in range(len(self.channel_mult))]
         self.layers_list       = []
 
-        self.ResnetBlockPartial = partial(l.ResnetBlockDDPM, activation=activation_fn, time_emb_dim=4*nf, dropout=config.Model.dropout)
+        self.ResnetBlockPartial = partial(l.ResnetBlockDDPM, activation=activation_fn, time_emb_dim=4*nf, dropout=config.Model.dropout.value)
         self.AttnBlockPartial   = partial(l.Attention)
 
     def call(self, x, time_emb, skip_connections, training=False):
@@ -149,7 +149,7 @@ class FinalBlock(tf.keras.layers.Layer):
     def __init__(self, out_channels, activation_fn):
         super(FinalBlock, self).__init__()
         self.group_norm = tf.keras.layers.GroupNormalization(axis=-1, epsilon=1e-6)
-        self.conv = l.Conv3x3(out_channels, init_scale=0.)
+        self.conv = l.Conv3x3(out_channels, init_scale=1e-3)
         self.activation_fn = activation_fn
 
     def call(self, x, training=False):

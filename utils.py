@@ -21,9 +21,9 @@ def get_sigmas():
     """
     Returns an arrary of noise levels
     """
-    sigma_max    = config.Model.sigma_max
-    sigma_min    = config.Model.sigma_min
-    num_scales   = config.Model.num_scales
+    sigma_max    = config.Model.sigma_max.value
+    sigma_min    = config.Model.sigma_min.value
+    num_scales   = config.Model.num_scales.value
     log_linspace = tf.linspace(tf.math.log(sigma_max), tf.math.log(sigma_min), num_scales)
     sigmas       = tf.exp(log_linspace) # to get the sigmas in original scale.
     return sigmas
@@ -32,9 +32,9 @@ def get_beta_schedule(type='linear'):
     """
     returns a schedule for betas for noise addition
     """
-    beta_start = config.Model.sigma_max
-    beta_end   = config.Model.sigma_min
-    num_steps  = config.Model.num_scales
+    beta_start = config.Model.sigma_max.value
+    beta_end   = config.Model.sigma_min.value
+    num_steps  = config.Model.num_scales.value
     if type == 'linear':
         betas = tf.linspace(beta_start, beta_end, num_steps, dtype=tf.float64)
     elif type == 'quadratic':

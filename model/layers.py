@@ -12,7 +12,7 @@ class Conv3x3(tf.keras.layers.Layer):
         super(Conv3x3, self).__init__()
         padding_mode = 'same' if padding == 1 else 'valid'
         self.conv = tf.keras.layers.Conv2D(
-            filters=self,
+            filters=out,
             kernel_size=3,
             strides=stride,
             padding=padding_mode,
@@ -123,7 +123,7 @@ class ResnetBlockDDPM(tf.keras.layers.Layer):
 
         self.groupNorm1 = tf.keras.layers.GroupNormalization(groups=32, epsilon=1e-6)
         self.dropout0 = tf.keras.layers.Dropout(dropout)
-        self.conv1 = Conv3x3(out, init_scale=0.) # init_scale=0 means that this layer starts with near-zero weights
+        self.conv1 = Conv3x3(out, init_scale=1e-3) # init_scale=0 means that this layer starts with near-zero weights
 
         if inp != out:
             if conv_shortcut:

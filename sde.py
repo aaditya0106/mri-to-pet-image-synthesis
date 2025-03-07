@@ -11,9 +11,9 @@ class VESDE(tf.keras.Model):
     def __init__(self, pet_score_func, mri_score_func):
         super(VESDE, self).__init__()
         self.T = 'to be determined'
-        self.N = config.Model.num_scales
-        self.sigma_min = config.Model.sigma_min
-        self.sigma_max = config.Model.sigma_max
+        self.N = config.Model.num_scales.value
+        self.sigma_min = config.Model.sigma_min.value
+        self.sigma_max = config.Model.sigma_max.value
         self.sigmas = get_beta_schedule('exponential')
 
         # Define score functions for MRI and PET modalities

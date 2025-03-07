@@ -1,5 +1,5 @@
 from utils import get_sigmas
-import blocks
+import model.blocks as blocks
 import config
 import tensorflow as tf
 import numpy as np
@@ -12,16 +12,17 @@ class DDPM(tf.keras.Model):
         super(DDPM, self).__init__()
         self.activation_fn  = activation
         self.sigmas         = tf.constant(np.array(get_sigmas()), dtype=tf.float32)
-        self.nf             = config.Model.nf # number of feature channels
-        self.conditional    = config.Model.conditional
-        self.scale_by_sigma = config.Model.scale_by_sigma
+        self.nf             = config.Model.nf.value # number of feature channels
+        self.conditional    = config.Model.conditional.value
+        self.scale_by_sigma = config.Model.scale_by_sigma.value
+        self.out_channel    = config.Model.out_channels.value
 
         # build U-Net modules
         self.time_emb_block   = blocks.TimeEmbeddingBlock(self.nf, self.activation_fn, self.conditional)
         self.downsample_block = blocks.DownsamplingBlock(self.nf, self.activation_fn)
         self.bottleneck_block = blocks.BottleneckBlock(self.nf, self.activation_fn)
         self.upsample_block   = blocks.UpsampleBlock(self.nf, self.activation_fn)
-        self.final_block      = blocks.FinalBlock(self.upsample_block.out_channel, self.activation_fn)
+        self.final_block      = blocks.FinalBlock(self.out_channel, self.activation_fn)
     
     def call(self, x, labels, training=False):
         """
