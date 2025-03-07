@@ -1,5 +1,4 @@
 from utils import get_beta_schedule
-from ddpm import DDPM
 import config
 import tensorflow as tf
 import numpy as np

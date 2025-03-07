@@ -20,6 +20,6 @@ def load_data():
         t1_path  = os.path.join(path, file, 'T1_MNI.nii.gz')
         t1_img   = load_image(t1_path)
         fdg_path = os.path.join(path, file, 'FDG_MNI.nii.gz')
-        t2_img   = load_image(fdg_path)
-        data.append((t1_img, t2_img))
+        fdg_img   = load_image(fdg_path)
+        data.append((t1_img, fdg_img))
     return data
