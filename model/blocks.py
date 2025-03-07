@@ -13,20 +13,23 @@ class TimeEmbeddingBlock(tf.keras.layers.Layer):
         self.conditional = conditional
         self.activation_fn = activation_fn
         if self.conditional:
+            self.time_emb = l.TimestepEmbedding(nf)
             self.dense0 = tf.keras.layers.Dense(
-                4*self.nf,
-                kernel_initializer=default_init()((nf, 4*nf)),
+                4*nf,
+                kernel_initializer=default_init(),#((nf, 4*nf)),
                 bias_initializer=tf.keras.initializers.Zeros()
             )
             self.dense1 = tf.keras.layers.Dense(
-                kernel_initializer=default_init()((4*nf, 4*nf)),
+                self.dense0.units,
+                kernel_initializer=default_init(),#((4*nf, 4*nf)),
                 bias_initializer=tf.keras.initializers.Zeros()
             )
 
     def call(self, labels):
+        print("calling from time emb block")
         if not self.conditional:
             return None
-        time_emb = l.TimestepEmbedding(labels, self.dense0.units)
+        time_emb = self.time_emb(labels)
         time_emb = self.dense0(time_emb)
         time_emb = self.dense1(self.activation_fn(time_emb))
         return time_emb
@@ -73,16 +76,20 @@ class DownsamplingBlock(tf.keras.layers.Layer):
         self.out_channel = in_channel
 
     def call(self, x, time_emb, training=False):
+        print("calling from downsample block")
         skip_connections = []
         h = x
         for layer in self.layers_list:
             try:
                 h = layer(h, time_emb, training=training) # apply resnet layer
+                print(f"downsampling-r: h_shape={h.shape}")
             except TypeError:
                 try:
                     h = layer(h, training=training) # apply attention layer
+                    print(f"downsampling-a: h_shape={h.shape}")
                 except Exception:
                     h = layer(h) # apply downsample layer
+                    print(f"downsampling-d: h_shape={h.shape}")
             skip_connections.append(h)
         return h, skip_connections
     
@@ -97,13 +104,11 @@ class BottleneckBlock(tf.keras.layers.Layer):
         self.resnet2 = l.ResnetBlockDDPM(nf, nf, activation=activation_fn, time_emb_dim=4*nf, dropout=config.Model.dropout.value)
 
     def call(self, x, time_emb, training=False):
+        print("calling from bottleneck block")
         h = self.resnet1(x, time_emb, training=training)
         h = self.attn(h, training=training)
         h = self.resnet2(h, time_emb, training=training)
         return h
-
-    def call(self):
-        pass
 
 class UpsampleBlock(tf.keras.layers.Layer):
     """
@@ -125,11 +130,16 @@ class UpsampleBlock(tf.keras.layers.Layer):
         self.AttnBlockPartial   = partial(l.Attention)
 
     def call(self, x, time_emb, skip_connections, training=False):
+        print("calling from upsample block")
         h = x
         # reverse looping through resolution levels
-        for level in reversed(range(self.num_levels)):
+        for level in reversed(range(self.num_resolutions)):
             for block in range(self.num_resnet_blocks + 1):
                 skip = skip_connections.pop()
+                print(f"upsampling: h_shape={h.shape}, skip_shape={skip.shape}")
+                # resize to match skip. downsample reduces sizes like (22, 26) to (10, 12) so that output is also even
+                # but when you upsample it to (20, 24), it won't match the shape of skip connection
+                h = tf.image.resize(x, size=(skip.shape[1], skip.shape[2]), method='nearest')
                 h = tf.concat([h, skip], axis=-1) # concatenate skip connection from the downsampling block
                 out_channel = self.nf * self.channel_mult[level]
                 h = self.ResnetBlockPartial(h.shape[-1], out_channel)(h, time_emb, training=training)
@@ -153,6 +163,7 @@ class FinalBlock(tf.keras.layers.Layer):
         self.activation_fn = activation_fn
 
     def call(self, x, training=False):
+        print("calling from final block")
         h = self.group_norm(x, training=training)
         h = self.activation_fn(h)
         h = self.conv(h)
