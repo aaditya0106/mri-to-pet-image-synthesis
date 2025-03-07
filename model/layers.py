@@ -108,7 +108,7 @@ class ResnetBlockDDPM(tf.keras.layers.Layer):
         self.conv_shortcut = conv_shortcut
         self.activation = activation
 
-        self.groupNorm0 = tf.keras.layers.GroupNormalization(groups=32, epsilon=1e-6)
+        self.groupNorm0 = tf.keras.layers.GroupNormalization(groups=2, epsilon=1e-6) # groups = 32
         self.conv0 = Conv3x3(out)
 
         # If a time embedding dimension is provided, create a dense layer (with ddpm style initialization) to process it.
@@ -120,8 +120,7 @@ class ResnetBlockDDPM(tf.keras.layers.Layer):
             )
         else:
             self.dense = None
-
-        self.groupNorm1 = tf.keras.layers.GroupNormalization(groups=32, epsilon=1e-6)
+        self.groupNorm1 = tf.keras.layers.GroupNormalization(groups=2, epsilon=1e-6) # groups = 32
         self.dropout0 = tf.keras.layers.Dropout(dropout)
         self.conv1 = Conv3x3(out, init_scale=1e-3) # init_scale=0 means that this layer starts with near-zero weights
 
@@ -129,6 +128,12 @@ class ResnetBlockDDPM(tf.keras.layers.Layer):
             self.conv2 = Conv3x3(out)
         else:
             self.nin = NIN(out)
+
+    def build(self, input_shape):
+        """
+        created to suppress the tensorflow warning
+        """
+        super(ResnetBlockDDPM, self).build(input_shape)
 
     def call(self, x, time_emb=None, training=False):
         h = self.activation(self.groupNorm0(x, training=training))
