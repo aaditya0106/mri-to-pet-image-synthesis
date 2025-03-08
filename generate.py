@@ -20,9 +20,8 @@ def generate(mri):
     return pet_pred
 
 def test():
+    model, sde = load_model()
     test_data = get_train_test_data()[1]
-    model, sde = get_models()
-    model.load_weights('./checkpoints/ckpt-4') # enter correct checkpoint to load best model
 
     best_psnr = 0.0
     predictions = []
