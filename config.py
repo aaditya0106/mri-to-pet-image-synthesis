@@ -25,10 +25,11 @@ class Model(Enum):
     channel_merge               = True
 
 class Training(Enum):
-    batch_size                  = 32
-    epochs                      = 1000
+    batch_size                  = 2
+    epochs                      = 20
     likelihood_weighting        = False
     continuous                  = True
     reduce_mean                 = False
     joint                       = True
     checkpoint_dir              = '/content/drive/MyDrive/Project/MRItoPET/checkpoints/'
+    secondary_checkpoint_dir    = '/content/checkpoints/'
