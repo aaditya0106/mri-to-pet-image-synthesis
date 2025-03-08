@@ -32,8 +32,8 @@ def train():
     # initialize the model
     model = DDPM(activation=tf.keras.activations.swish)
     sde = VESDE(
-    pet_score_func=lambda x, t: model(x, t, training=True),
-    mri_score_func=lambda x, t: model(x, t, training=True),
+        pet_score_func=lambda x, t: model(x, t, training=True),
+        mri_score_func=lambda x, t: model(x, t, training=True),
     )
 
     # initialize optimizer
@@ -54,8 +54,9 @@ def train():
             pet = tf.expand_dims(tf.cast(batch[:, 1, :, :], dtype=tf.float32), axis=-1) # adding dim for channel (b, h, w, c)
             loss = train_eval_step(sde, model, optimizer, pet, mri, training=True)
             total_loss += loss
-            if epoch % 10 == 0:
-                print(f'Epoch {epoch + 1}/{config.training.epochs}, Loss: {loss:.5f}, Mean Loss: {total_loss / (epoch + 1):.5f}, Time: {time.time() - start_time:.2f}s')
+
+        if epoch % 10 == 0:
+            print(f'Epoch {epoch + 1}/{config.Training.epochs.value}, Loss: {loss:.5f}, Mean Loss: {total_loss / (epoch + 1):.5f}, Time: {time.time() - start_time:.2f}s')
 
         # save checkpoint every 5 epochs
         if (epoch + 1) % 5 == 0:
