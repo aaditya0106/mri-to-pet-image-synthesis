@@ -1,4 +1,5 @@
 from skimage.metrics import structural_similarity as SSIM 
+import tensorflow as tf
 import cv2
 
 def SSIM(pet_generated, pet_original):
@@ -16,5 +17,5 @@ def PSNR(pet_generated, pet_original):
     Calculate Peak Signal to Noise Ratio.
     It's ratio between the max possible power of an image and the power of corrupting noise that affects its quality.
     """
-    psnr = cv2.PSNR(pet_original, pet_generated)
+    psnr = tf.image.psnr(pet_original, pet_generated, max_val=1.0)
     return psnr

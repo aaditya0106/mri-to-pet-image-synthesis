@@ -85,12 +85,12 @@ class Attention(tf.keras.layers.Layer):
         k = self.nin_1(h) # key
         v = self.nin_2(h) # value
 
-        w = tf.einsum('bhwc,bhwc->bhwHW', q, k) * (tf.cast(C, tf.float32) ** -0.5) # scaled dot-product to find similarity between query and key
+        w = tf.einsum('bhwc,bijc->bhwij', q, k) * (tf.cast(C, tf.float32) ** -0.5) # scaled dot-product to find similarity between query and key
         w = tf.reshape(w, (B, H, W, H * W))
         w = tf.nn.softmax(w, axis=-1) # ensures attention scores sum to 1. higher values indicate higher importance
         w = tf.reshape(w, (B, H, W, H, W))
 
-        h = tf.einsum('bhwHW,bhwc->bhwc', w, v) # apply attention weights to value
+        h = tf.einsum('bhwij,bijc->bhwc', w, v) # apply attention weights to value
         h = self.nin_3(h)
 
         return x + h # residual connection
@@ -101,14 +101,14 @@ class ResnetBlockDDPM(tf.keras.layers.Layer):
     It applies two 3x3 convolutions with DDPM-style initialization, group normalization with 32 groups, dropout, 
     and optionally conditions the output on a time embedding.
     """
-    def __init__(self, inp, out, activation, time_emb_dim=None, conv_shortcut=False, dropout=0.1):
+    def __init__(self, inp, out, activation, time_emb_dim=None, conv_shortcut=True, dropout=0.1):
         super(ResnetBlockDDPM, self).__init__()
         self.inp = inp
         self.out = out
         self.conv_shortcut = conv_shortcut
         self.activation = activation
 
-        self.groupNorm0 = tf.keras.layers.GroupNormalization(groups=32, epsilon=1e-6)
+        self.groupNorm0 = tf.keras.layers.GroupNormalization(groups=2, epsilon=1e-6) # groups = 32
         self.conv0 = Conv3x3(out)
 
         # If a time embedding dimension is provided, create a dense layer (with ddpm style initialization) to process it.
@@ -120,22 +120,26 @@ class ResnetBlockDDPM(tf.keras.layers.Layer):
             )
         else:
             self.dense = None
-
-        self.groupNorm1 = tf.keras.layers.GroupNormalization(groups=32, epsilon=1e-6)
+        self.groupNorm1 = tf.keras.layers.GroupNormalization(groups=2, epsilon=1e-6) # groups = 32
         self.dropout0 = tf.keras.layers.Dropout(dropout)
         self.conv1 = Conv3x3(out, init_scale=1e-3) # init_scale=0 means that this layer starts with near-zero weights
 
-        if inp != out:
-            if conv_shortcut:
-                self.conv2 = Conv3x3(out)
-            else:
-                self.nin = NIN(out)
+        if conv_shortcut:
+            self.conv2 = Conv3x3(out)
+        else:
+            self.nin = NIN(out)
+
+    def build(self, input_shape):
+        """
+        created to suppress the tensorflow warning
+        """
+        super(ResnetBlockDDPM, self).build(input_shape)
 
     def call(self, x, time_emb=None, training=False):
         h = self.activation(self.groupNorm0(x, training=training))
         h = self.conv0(h)
 
-        if time_emb and self.dense:
+        if time_emb is not None and self.dense is not None:
             time_emb_out = self.dense(self.activation(time_emb))
             time_emb_out = tf.reshape(time_emb_out, [-1, 1, 1, self.out])
             h = h + time_emb_out # add the time embedding bias to the features
@@ -165,7 +169,10 @@ class Downsample(tf.keras.layers.Layer):
             # padding="same" usually applies symmetric padding, which might not produce the same spatial alignment.
             # Therefore, we pad only right and bottom to ensure when the convolution with stride 2 is applied, 
             # the output dimensions are exactly half of the input
-            x = tf.pad(x, paddings=[[0, 0], [0, 1], [0, 1], [0, 0]]) # left, right, top, bottom
+            pad_h = H % 2  # if height is odd, pad +1
+            pad_w = W % 2  # if width is odd, pad +1
+            if pad_w or pad_h:
+                x = tf.pad(x, paddings=[[0, 0], [0, pad_h], [0, pad_w], [0, 0]]) # left, right, top, bottom
             x = self.conv(x)
         else:
             x = tf.keras.layers.AveragePooling2D(pool_size=(2, 2), strides=2, padding='valid')(x)

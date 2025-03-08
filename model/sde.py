@@ -9,7 +9,7 @@ class VESDE(tf.keras.Model):
     """
     def __init__(self, pet_score_func, mri_score_func):
         super(VESDE, self).__init__()
-        self.T = 'to be determined'
+        self.T = 1.0 # end time of SDE
         self.N = config.Model.num_scales.value
         self.sigma_min = config.Model.sigma_min.value
         self.sigma_max = config.Model.sigma_max.value
@@ -26,7 +26,7 @@ class VESDE(tf.keras.Model):
         """
         std = self.sigma_min * (self.sigma_max / self.sigma_min) ** t
         mean = x # mean remains unchanged
-        return std, mean
+        return mean, std
     
     def compute_diffusion(self, t):
         """

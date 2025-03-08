@@ -12,10 +12,11 @@ class DDPM(tf.keras.Model):
         super(DDPM, self).__init__()
         self.activation_fn  = activation
         self.sigmas         = tf.constant(np.array(get_sigmas()), dtype=tf.float32)
+        self.centered       = config.Data.centered.value
         self.nf             = config.Model.nf.value # number of feature channels
         self.conditional    = config.Model.conditional.value
         self.scale_by_sigma = config.Model.scale_by_sigma.value
-        self.out_channel    = config.Model.out_channels.value
+        self.out_channel    = int(config.Model.out_channels.value)
 
         # build U-Net modules
         self.time_emb_block   = blocks.TimeEmbeddingBlock(self.nf, self.activation_fn, self.conditional)
