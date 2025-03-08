@@ -6,6 +6,7 @@ class Data(Enum):
     num_channels                = 2
     centered                    = False
     data_path                   = '/content/drive/MyDrive/Project/MRItoPET/data/t1_flair_asl_fdg_preprocessed/'
+    slices                      = 1
     
 class Model(Enum):
     nf                          = 128

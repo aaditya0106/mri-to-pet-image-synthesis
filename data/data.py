@@ -1,6 +1,7 @@
 import nibabel as nib
 import numpy as np
 import os
+import config
 
 def load_image(path, slices=1):
     """
@@ -28,8 +29,8 @@ def load_data(data_path = 't1_flair_asl_fdg_preprocessed'):
     for file in files:
         t1_path  = os.path.join(path, file, 'T1_MNI.nii.gz')
         fdg_path = os.path.join(path, file, 'FDG_MNI.nii.gz')
-        t1_img = load_image(t1_path, slices=1)  # shape: (H, W, S)
-        fdg_img = load_image(fdg_path, slices=1)  # shape: (H, W, S)
+        t1_img = load_image(t1_path, slices=config.Data.slices)  # shape: (H, W, S)
+        fdg_img = load_image(fdg_path, slices=config.Data.slices)  # shape: (H, W, S)
         
         # Move the slice axis (third axis) to the front.
         # This yields arrays of shape (S, H, W)
