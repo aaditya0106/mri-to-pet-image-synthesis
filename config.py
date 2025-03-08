@@ -6,6 +6,7 @@ class Data(Enum):
     num_channels                = 2
     centered                    = False
     data_path                   = '/content/drive/MyDrive/Project/MRItoPET/data/t1_flair_asl_fdg_preprocessed/'
+    slices                      = 1
     
 class Model(Enum):
     nf                          = 128
@@ -25,10 +26,11 @@ class Model(Enum):
     channel_merge               = True
 
 class Training(Enum):
-    batch_size                  = 32
-    epochs                      = 1000
+    batch_size                  = 2
+    epochs                      = 20
     likelihood_weighting        = False
     continuous                  = True
     reduce_mean                 = False
     joint                       = True
     checkpoint_dir              = '/content/drive/MyDrive/Project/MRItoPET/checkpoints/'
+    secondary_checkpoint_dir    = '/content/checkpoints/'
