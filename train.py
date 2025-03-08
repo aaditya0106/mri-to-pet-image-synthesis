@@ -77,11 +77,10 @@ def train(dataset_path=config.Data.data_path.value, checkpoint_dir=config.Traini
                 loss = train_eval_step(sde, model, optimizer, pet, mri, training=True)
                 total_loss += loss
                 cnt += 1
-                pbar.set_postfix(loss=loss.numpy())
+                pbar.set_postfix(loss=total_loss/cnt)
                 pbar.update(1)
 
-        if epoch % 10 == 0:
-            print(f'Epoch {epoch + 1}/{config.Training.epochs.value}, Loss: {loss:.5f}, Mean Loss: {total_loss / cnt:.5f}, Time: {time.time() - start_time:.2f}s')
+        print(f'Epoch {epoch + 1}/{config.Training.epochs.value}, Loss: {loss:.5f}, Mean Loss: {total_loss / cnt:.5f}, Time: {time.time() - start_time:.2f}s')
 
         checkpoint_manager.save()
         s_checkpoint_manager.save()
