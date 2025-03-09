@@ -48,6 +48,26 @@ def get_chkpt_manager(optimizer, model, checkpoint_dir=config.Training.checkpoin
     
     return checkpoint_manager, secondary_checkpoint_manager
 
+def load_latest_checkpoint(checkpoint_manager):
+    """
+    Loads the latest checkpoint from the given checkpoint manager.
+
+    Args:
+        checkpoint_manager: An object that manages checkpoints, typically containing
+                             attributes 'latest_checkpoint' and 'checkpoint'.
+
+    Returns:
+        The checkpoint object after restoring from the latest checkpoint, if available.
+        If no checkpoint is found, it returns the checkpoint object without restoring.
+    """
+    latest_checkpoint = checkpoint_manager.latest_checkpoint
+    if latest_checkpoint:
+        checkpoint_manager.checkpoint.restore(latest_checkpoint).expect_partial()
+        print(f"Restored from {latest_checkpoint}")
+        return checkpoint_manager.checkpoint
+    else:
+        print("No checkpoint found. Starting from scratch.")
+
 def train_eval_step(sde, model, optimizer, pet, mri, training=True):
     loss_klass = JDAMLoss(sde, train=training)
     if training:
