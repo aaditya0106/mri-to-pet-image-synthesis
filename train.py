@@ -69,6 +69,7 @@ def train(dataset_path=config.Data.data_path.value, checkpoint_dir=config.Traini
     for epoch in range(config.Training.epochs.value):
         total_loss = 0.
         cnt = 0
+        start_time = time.time()
         with tqdm(total=len(data), desc=f'Epoch {epoch + 1}/{config.Training.epochs.value}', unit='batch') as pbar:
             for batch in data:
                 start_time = time.time()
