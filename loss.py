@@ -11,23 +11,18 @@ class JDAMLoss:
         self.eps = eps # smallest time step to sample from
         self.beta = 1.0 # beta parameter for score matching loss
 
-    def compute_loss_2(self, score_func, pet_clean, mri_clean, likelihood_weighting=False):
+    def compute_loss_2(self, score_func, pet_clean, mri_clean):
         batch_size = tf.shape(pet_clean)[0]
         t = tf.random.uniform([batch_size], minval=self.eps, maxval=self.sde.T) # random time step t uniformly in [eps, T]
         z = tf.random.normal(tf.shape(pet_clean)) # sample gaussian noise
-        mean, std = self.sde.marginal_probability(pet_clean, t)
-        noisy_input = mean + std * z # perturb data with noise
-
-        if config.Training.joint:
-            noisy_input = tf.concat([noisy_input, mri_clean], axis=-1) # concatenate MRI data
+        _, noise = self.sde.marginal_probability(pet_clean, t)
+        noisy_input = pet_clean + noise * z # perturb data with noise
+        noisy_input = tf.concat([noisy_input, mri_clean], axis=-1) # concatenate MRI data
 
         labels = self.sde.marginal_probability(tf.zeros_like(pet_clean), t)[1] 
         score = score_func(noisy_input, labels=labels, training=self.train) # compute score function # input self.train?
 
-        if not config.Training.joint:
-            losses = tf.square(score - mri_clean - std[:, None, None, None] * z) # compute loss
-        else:
-            losses = tf.square(score * std[:, None, None, None] * z) # you can duplicate noise if not merging channels
+        losses = tf.square(score * noise[:, None, None, None] * z) # you can duplicate noise if not merging channels
         losses = tf.reduce_mean(tf.reshape(losses, [tf.shape(losses)[0], -1]), axis=-1) # compute mean loss
         loss = tf.reduce_mean(losses)
         return loss

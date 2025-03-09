@@ -1,5 +1,5 @@
 import tensorflow as tf
-import config
+from tqdm import tqdm
 
 class EulerMaruyamaPredictor:
     """
@@ -23,7 +23,7 @@ class LangevinCorrector:
         self.snr = snr  # signal-to-noise ratio
         self.n_steps = n_steps  # number of correction steps
 
-    def update_func(self, x, t, mri):
+    def update_func(self, x, mri, t):
         """
         Applies Langevin correction to refine sampling.
         Langevin correction step:
@@ -34,19 +34,9 @@ class LangevinCorrector:
             x: Updated sample after langevin correction
             x_mean: Mean of x before adding noise
         """
-        for _ in range(self.n_steps):
-            if config.Model.channel_merge:
-                x_concat = tf.concat([x, mri], axis=1)
-                grad = self.pet_score_func(x_concat, t) # delta_x log p_t(PET, MRI)
-            else:
-                pet_grad = self.sde.pet_score_func(x, t) # delta_x log p_t(PET)
-                mri_grad = self.sde.mri_score_func(x, t) # delta_x log p_t(MRI)
-                grad = pet_grad + mri_grad # combine both gradients
-
-            # extract PET gradient only if channel merging is disabled
-            if not config.Model.channel_merge:
-                grad = grad[:, 0, :, :] # extract first channel
-                grad = tf.expand_dims(grad, axis=1)
+        for _ in tqdm(range(self.n_steps), desc="Correction Progress", total=self.n_steps):
+            x_concat = tf.concat([x, mri], axis=-1)
+            grad = self.sde.pet_score_func(x_concat, t) # delta_x log p_t(PET, MRI)
 
             # langevin correction step
             noise = tf.random.normal(tf.shape(x))
@@ -59,23 +49,25 @@ class LangevinCorrector:
 
         return x, x_mean
 
-def sampler(sde, mri, shape, snr, n_steps, eps=1e-3, denoise=True):
+def sampler(sde, mri, snr, n_steps, eps=1e-3, denoise=True):
     """
     Predictor-Corrector (PC) sampler for diffusion model using VESDE.
     """
     predictor = EulerMaruyamaPredictor(sde)
     corrector = LangevinCorrector(sde, snr, n_steps)
 
-    x = sde.prior_sampling(shape)  # initialize from prior distribution
+    x = sde.prior_sampling(mri.shape)  # initialize from prior distribution
+    x = tf.expand_dims(tf.expand_dims(x, axis=-1), axis=0)  # add batch and channel dimension
+    mri = tf.cast(mri, dtype=tf.float32)
+    mri = tf.expand_dims(tf.expand_dims(mri, axis=-1), axis=0)  # add batch and channel dimension
     timesteps = tf.linspace(sde.T, eps, sde.N)  # time steps
 
-    for i in range(sde.N):
+    for i in tqdm(range(sde.N), desc="Sampling Progress", total=sde.N):
         t = timesteps[i]
-        vec_t = tf.ones(shape[0]) * t
-        x = tf.concat([x, mri])
+        vec_t = tf.ones(x.shape[0]) * t
         # corrector step (Langevin dynamics)
-        x, x_mean = corrector.update_func(x, vec_t, mri)
+        x, x_mean = corrector.update_func(x, mri, vec_t)
         # predictor step (Euler-Maruyama)
-        x, x_mean = predictor.update_func(x, vec_t, mri) 
+        x, x_mean = predictor.update_func(x, mri, vec_t) 
 
     return (x_mean if denoise else x)

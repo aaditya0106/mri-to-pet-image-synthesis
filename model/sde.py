@@ -56,8 +56,9 @@ class VESDE(tf.keras.Model):
     def prior_sampling(self, shape):
         """
         Samples from the prior distribution, which is an isotropic Gaussian.
+        Return x_T (pure noise) which is starting step of the reverse SDE.
         """
-        return tf.random.normal(*shape) * self.sigma_max
+        return tf.random.normal(shape) * self.sigma_max
     
     def prior_logp(self, z):
         """
@@ -93,9 +94,9 @@ class VESDE(tf.keras.Model):
 
         f = tf.zeros_like(x)
         g = tf.sqrt(next_sigma ** 2 - sigma ** 2)
-        # z = tf.random.normal(shape=tf.shape(x), dtype=x.dtype)
-        # x = x + g * z
-        return f, g
+        z = tf.random.normal(shape=tf.shape(x), dtype=x.dtype)
+        x = x + f + g * z
+        return x
     
     def reverse_sde(self, x, t, mri):
         """
