@@ -20,6 +20,7 @@ def get_train_test_data(split=0.9, path=config.Data.data_path.value):
     np.random.shuffle(data)
     split = int(len(data) * split)
     train_data = data[:split]
+    train_data = train_data[:(len(train_data)//config.Training.batch_size.value)*config.Training.batch_size.value]
     train_data = tf.data.Dataset.from_tensor_slices(train_data).batch(config.Training.batch_size.value)
     test_data = data[split:]
     return train_data, test_data
@@ -36,11 +37,16 @@ def get_optimizer():
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, beta_1=0.9, clipnorm=1.0) # eps=1e-8, warmup_steps=5000
     return optimizer
 
-def get_chkpt_manager(optimizer, model, checkpoint_dir = config.Training.checkpoint_dir.value):
+def get_chkpt_manager(optimizer, model, checkpoint_dir=config.Training.checkpoint_dir.value, secondary_checkpoint_dir=config.Training.secondary_checkpoint_dir.value):
     os.makedirs(checkpoint_dir, exist_ok=True)
+    os.makedirs(secondary_checkpoint_dir, exist_ok=True)
+    
     checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
+    
     checkpoint_manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=5)
-    return checkpoint_manager
+    secondary_checkpoint_manager = tf.train.CheckpointManager(checkpoint, secondary_checkpoint_dir, max_to_keep=5)
+    
+    return checkpoint_manager, secondary_checkpoint_manager
 
 def train_eval_step(sde, model, optimizer, pet, mri, training=True):
     loss_klass = JDAMLoss(sde, train=training)
@@ -57,12 +63,13 @@ def train(dataset_path=config.Data.data_path.value, checkpoint_dir=config.Traini
     data, _             = get_train_test_data(path=dataset_path)                 # load data
     model, sde          = get_models()                          # initialize the model and sde
     optimizer           = get_optimizer()                       # initialize optimizer
-    checkpoint_manager  = get_chkpt_manager(optimizer, model, checkpoint_dir=checkpoint_dir)   # initialize checkpoint manager
+    checkpoint_manager, s_checkpoint_manager  = get_chkpt_manager(optimizer, model, checkpoint_dir=checkpoint_dir, secondary_checkpoint_dir=config.Training.secondary_checkpoint_dir.value)   # initialize checkpoint manager
 
     # training loop
     for epoch in range(config.Training.epochs.value):
         total_loss = 0.
         cnt = 0
+        start_time = time.time()
         with tqdm(total=len(data), desc=f'Epoch {epoch + 1}/{config.Training.epochs.value}', unit='batch') as pbar:
             for batch in data:
                 start_time = time.time()
@@ -71,15 +78,16 @@ def train(dataset_path=config.Data.data_path.value, checkpoint_dir=config.Traini
                 loss = train_eval_step(sde, model, optimizer, pet, mri, training=True)
                 total_loss += loss
                 cnt += 1
-                pbar.set_postfix(loss=loss.numpy())
+                pbar.set_postfix(loss=total_loss/cnt)
                 pbar.update(1)
 
-        if epoch % 10 == 0:
-            print(f'Epoch {epoch + 1}/{config.Training.epochs.value}, Loss: {loss:.5f}, Mean Loss: {total_loss / cnt:.5f}, Time: {time.time() - start_time:.2f}s')
+        print(f'Epoch {epoch + 1}/{config.Training.epochs.value}, Mean Loss: {total_loss / (1 if cnt==0 else cnt):.5f}, Time: {time.time() - start_time:.2f}s')
 
+        checkpoint_manager.save()
+        s_checkpoint_manager.save()
         # save checkpoint every 5 epochs
-        if (epoch + 1) % 5 == 0:
-            checkpoint_manager.save()
+        # if (epoch + 1) % 5 == 0:
+        #     checkpoint_manager.save()
 
 if __name__ == '__main__':
 
