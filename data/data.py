@@ -20,10 +20,15 @@ def load_image(path, slices=1):
     end = center + (slices // 2) + (slices % 2)
     return img[:, :, start:end]
 
-def save_normalizer(t1_mean, t1_std, fdg_mean, fdg_std, norm_path='normalizer.pkl'):
+def save_normalizer(t1_mean, t1_std, fdg_mean, fdg_std, norm_path='checkpoint/normalizer/normalizer.pkl'):
     """
     Save normalization parameters to a file.
     """
+    # Ensure the directory exists.
+    directory = os.path.dirname(norm_path)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    
     normalizer = {
         't1_mean': t1_mean,
         't1_std': t1_std,
@@ -42,7 +47,7 @@ def load_normalizer(norm_path='normalizer.pkl'):
         normalizer = pickle.load(f)
     return normalizer
 
-def load_data(data_path='t1_flair_asl_fdg_preprocessed', slices=1, norm_path=config.Training.checkpoint_dir+'/normalizer/normalizer.pkl'):
+def load_data(data_path='t1_flair_asl_fdg_preprocessed', slices=1, norm_path=config.Training.checkpoint_dir.value+'/normalizer/normalizer.pkl'):
     """
     Load data from subfolders in data_path. For each subject, load the T1 and FDG images,
     extract a centered block of slices (slices argument), pair corresponding slices,
