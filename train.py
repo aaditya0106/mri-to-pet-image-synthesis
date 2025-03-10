@@ -33,7 +33,7 @@ def get_models():
     return model, sde
 
 def get_optimizer():
-    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, beta_1=0.9, clipnorm=1.0) # eps=1e-8, warmup_steps=5000
+    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3, beta_1=0.9, clipnorm=1.0) # eps=1e-8, warmup_steps=5000
     return optimizer
 
 def get_chkpt_manager(optimizer, model, checkpoint_dir=config.Training.checkpoint_dir.value, secondary_checkpoint_dir=config.Training.secondary_checkpoint_dir.value):
@@ -58,6 +58,17 @@ def train_eval_step(sde, model, optimizer, pet, mri, training=True):
         loss = loss_klass.compute_loss_2(model, pet, mri)
     return loss
 
+def print_weights(epoch, model_pred=None, n=5, checkpoint_dir=config.Training.checkpoint_dir.value):
+    if model_pred is None:
+        model_pred = DDPM(activation=tf.keras.activations.swish)
+        ckpt = tf.train.Checkpoint(model=model_pred)
+        ckpt_mgr = tf.train.CheckpointManager(ckpt, checkpoint_dir, max_to_keep=5)
+        ckpt.restore(ckpt_mgr.latest_checkpoint)
+    if model_pred.trainable_weights:
+        print("epoch: ", epoch, " weights: ", model_pred.trainable_weights[0].numpy()[0, :n])
+    else:
+        print("epoch: ", epoch, " no weights found")
+
 def train(dataset_path=config.Data.data_path.value, checkpoint_dir=config.Training.checkpoint_dir.value):
     data, _             = get_train_test_data(1.0, path=dataset_path)                 # load data
     model, sde          = get_models()                          # initialize the model and sde
@@ -77,7 +88,7 @@ def train(dataset_path=config.Data.data_path.value, checkpoint_dir=config.Traini
                 loss = train_eval_step(sde, model, optimizer, pet, mri, training=True)
                 total_loss += loss
                 cnt += 1
-                pbar.set_postfix(loss=total_loss/cnt)
+                pbar.set_postfix(loss=loss)
                 pbar.update(1)
 
         mean_loss = total_loss / (1 if cnt==0 else cnt)
@@ -85,6 +96,7 @@ def train(dataset_path=config.Data.data_path.value, checkpoint_dir=config.Traini
 
         ckpt_mgr.save()
         s_ckpt_mgr.save()
+        print_weights(epoch, model)
         model.save_weights(checkpoint_dir + f'/model_weights_epoch:{epoch}.weights.h5')
         # save checkpoint every 5 epochs
         # if (epoch + 1) % 5 == 0:

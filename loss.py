@@ -5,7 +5,7 @@ class JDAMLoss:
     """
     Implements the Score Matching Loss for PET-MRI training using VESDE
     """
-    def __init__(self, sde, eps=1e-3, train=True):
+    def __init__(self, sde, eps=1e-2, train=True):
         self.sde = sde
         self.train = train # true for training loss and false for evaluation loss
         self.eps = eps # smallest time step to sample from
@@ -44,6 +44,6 @@ class JDAMLoss:
 
         sigma_t = self.sde.compute_diffusion(t)
         score = score_func(input_noisy, labels=sigma_t, training=self.train)
-        lambda_t = 1 / (sigma_t ** 2)
-        loss = lambda_t * tf.reduce_mean(tf.square(sigma_t * score + (pet_noisy - pet_clean) / sigma_t))
+        # lambda_t = 1 / (sigma_t ** 2)
+        loss =  tf.reduce_mean(tf.square((sigma_t * score) + ((pet_noisy - pet_clean) / sigma_t))) # mul by lambda_t
         return loss

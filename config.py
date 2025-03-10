@@ -23,8 +23,8 @@ class Model(Enum):
     resamp_with_conv            = True
     conditional                 = True
     num_scales                  = 100
-    sigma_min                   = 1e-3
-    sigma_max                   = 0.999
+    sigma_min                   = 1e-2
+    sigma_max                   = 50.0
     beta_min                    = 0.1
     beta_max                    = 20.
     scale_by_sigma              = False
