@@ -35,7 +35,7 @@ class VESDE(tf.keras.Model):
         """
         sigma = self.sigma_min * (self.sigma_max / self.sigma_min) ** t
         log_diff = tf.math.log(self.sigma_max) - tf.math.log(self.sigma_min)
-        return sigma * tf.sqrt(tf.convert_to_tensor(2 * log_diff, dtype=tf.float64))
+        return sigma * tf.sqrt(tf.convert_to_tensor(2 * log_diff))
     
     def compute_mri_gradient_loss(self, x, t, mri):
         """
@@ -56,8 +56,9 @@ class VESDE(tf.keras.Model):
     def prior_sampling(self, shape):
         """
         Samples from the prior distribution, which is an isotropic Gaussian.
+        Return x_T (pure noise) which is starting step of the reverse SDE.
         """
-        return tf.random.normal(*shape) * self.sigma_max
+        return tf.random.normal(shape) * self.sigma_max
     
     def prior_logp(self, z):
         """
@@ -80,22 +81,35 @@ class VESDE(tf.keras.Model):
         diffusion = self.compute_diffusion(t)
         return drift, diffusion
     
-    def fwd_discrete(self, x, t):
+    def fwd_discrete_2(self, x, t):
         """
         Discretize the SDE in the form: x_{i+1} = x_i + f_i(x_i) + g_i z_i
         Where:
             f_i(x_i) = 0 (drift term)
             g_i = sqrt(sigma_{i+1}^2 - sigma_i^2) is the diffusion coefficient
         """
-        timestep = tf.cast(t * (self.N - 1) / self.T, tf.float64)
+        timestep = tf.cast(t * (self.N - 1) / self.T, tf.int64)
         sigma = tf.gather(self.sigmas, timestep)
         next_sigma = tf.gather(self.sigmas, tf.minimum(timestep + 1, self.N - 1))
+        print("timestep: ", timestep, "N: ", self.N, "T: ", self.T, "sigma_t: ", sigma, "sigma_t+1: ", next_sigma)
 
         f = tf.zeros_like(x)
         g = tf.sqrt(next_sigma ** 2 - sigma ** 2)
-        # z = tf.random.normal(shape=tf.shape(x), dtype=x.dtype)
-        # x = x + g * z
-        return f, g
+        z = tf.random.normal(shape=tf.shape(x), dtype=x.dtype)
+        x = x + f + g * z
+        return x
+    
+    def fwd_discrete(self, x, t):
+        """
+        Discretize the SDE in the form: x_{i+1} = x_i + f_i(x_i) + g_i z_i
+        Where:
+            f_i(x_i) = 0 (drift term)
+            g_i = sigma_min * (sigma_max / sigma_min)^t is the diffusion coefficient
+        """
+        _, g = self.marginal_probability(x, t)
+        z = tf.random.normal(shape=tf.shape(x), dtype=x.dtype)
+        x = x + g * z
+        return x
     
     def reverse_sde(self, x, t, mri):
         """
@@ -128,7 +142,7 @@ class VESDE(tf.keras.Model):
             s_theta(x, y, t) is the score function
             g_i = sqrt(sigma_i^2 - sigma_{i-1}^2) is the diffusion coefficient
         """
-        timestep = tf.cast(t * (self.N - 1) / self.T, tf.float64)
+        timestep = tf.cast(t * (self.N - 1) / self.T, tf.int64)
         sigma = tf.gather(self.sigmas, timestep)
         adjacent_sigma = tf.gather(self.sigmas, tf.maximum(timestep - 1, 0))
 
