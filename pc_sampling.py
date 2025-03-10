@@ -35,8 +35,8 @@ class LangevinCorrector:
             x_mean: Mean of x before adding noise
         """
         for _ in range(self.n_steps):
-            x_concat = tf.concat([x, mri], axis=1)
-            score = self.pet_score_func(x_concat, t) # s_theta(PET, MRI)
+            x_concat = tf.concat([x, mri], axis=-1)
+            score = self.sde.pet_score_func(x_concat, t)
             # langevin correction step
             z = tf.random.normal(tf.shape(x))
             z_norm = tf.norm(tf.reshape(z, [tf.shape(z)[0], -1]), axis=-1) # ||z||
@@ -48,19 +48,19 @@ class LangevinCorrector:
 
         return x, x_mean
 
-def sampler(sde, mri, shape, snr, n_steps, eps=1e-3, denoise=True):
+def sampler(sde, mri, snr, n_steps, eps=1e-3, denoise=True):
     """
     Predictor-Corrector (PC) sampler for diffusion model using VESDE.
     """
     predictor = EulerMaruyamaPredictor(sde)
     corrector = LangevinCorrector(sde, snr, n_steps)
 
-    x = sde.prior_sampling(shape)  # initialize from prior distribution
+    x = sde.prior_sampling(mri.shape)  # initialize from prior distribution
     timesteps = tf.linspace(sde.T, eps, sde.N)  # time steps
 
     for i in range(sde.N):
         t = timesteps[i]
-        vec_t = tf.ones(shape[0]) * t
+        vec_t = tf.ones(mri.shape[0]) * t
         # x = tf.concat([x, mri])
         # predictor step (Euler-Maruyama)
         x, x_mean = predictor.update_func(x, vec_t, mri) 
