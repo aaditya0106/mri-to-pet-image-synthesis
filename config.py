@@ -1,5 +1,11 @@
 from enum import Enum
+import platform
+import os
+
 seed = 42
+
+def is_macos():
+    return os.name == 'posix' and platform.system() == 'Darwin'
 
 class Data(Enum):
     image_size                  = 128
@@ -16,21 +22,20 @@ class Model(Enum):
     dropout                     = 0.0
     resamp_with_conv            = True
     conditional                 = True
-    num_scales                  = 1000
-    sigma_min                   = 0.01
-    sigma_max                   = 50.
+    num_scales                  = 50
+    sigma_min                   = 1e-3
+    sigma_max                   = 50.0
     beta_min                    = 0.1
-    beta_max                    = 20.
+    beta_max                    = 50.0
     scale_by_sigma              = False
     out_channels                = 1
     channel_merge               = True
 
 class Training(Enum):
-    batch_size                  = 2
-    epochs                      = 20
-    likelihood_weighting        = False
+    batch_size                  = 16
+    epochs                      = 300
     continuous                  = True
     reduce_mean                 = False
     joint                       = True
-    checkpoint_dir              = '/content/drive/MyDrive/Project/MRItoPET/checkpoints/'
-    secondary_checkpoint_dir    = '/content/checkpoints/'
+    checkpoint_dir              = '/content/drive/MyDrive/Project/MRItoPET/checkpoints/final_push/'
+    secondary_checkpoint_dir    = '/content/checkpoints/final_push/'
