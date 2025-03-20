@@ -146,7 +146,7 @@ class VESDE(tf.keras.Model):
         sigma = tf.gather(self.sigmas, timestep)
         adjacent_sigma = tf.gather(self.sigmas, tf.maximum(timestep - 1, 0))
 
-        g_i = tf.sqrt(sigma ** 2 - adjacent_sigma ** 2) # compute diffusion coefficient
+        g_i = tf.sqrt(adjacent_sigma ** 2 - sigma ** 2) # compute diffusion coefficient
 
         x_concat = tf.concat([x, mri], axis=-1)
         score = self.pet_score_func(x_concat, t) # compute PET score function gradient
