@@ -15,7 +15,7 @@ np.random.seed(config.seed)
 tf.random.set_seed(config.seed)
 
 def get_train_test_data(split=0.9, path=config.Data.data_path.value):
-    data = load_data(path)[:1]
+    data = load_data(path)
     np.random.shuffle(data)
     split = int(len(data) * split)
     train_data = data[:split]
@@ -58,22 +58,11 @@ def train_eval_step(sde, model, optimizer, pet, mri, training=True):
         loss = loss_klass.compute_loss_2(model, pet, mri)
     return loss
 
-def print_weights(epoch, model_pred=None, n=5, checkpoint_dir=config.Training.checkpoint_dir.value):
-    if model_pred is None:
-        model_pred = DDPM(activation=tf.keras.activations.swish)
-        ckpt = tf.train.Checkpoint(model=model_pred)
-        ckpt_mgr = tf.train.CheckpointManager(ckpt, checkpoint_dir, max_to_keep=5)
-        ckpt.restore(ckpt_mgr.latest_checkpoint)
-    if model_pred.trainable_weights:
-        print("epoch: ", epoch, " weights: ", model_pred.trainable_weights[0].numpy()[0, :n])
-    else:
-        print("epoch: ", epoch, " no weights found")
-
 def train(dataset_path=config.Data.data_path.value, checkpoint_dir=config.Training.checkpoint_dir.value):
-    data, _             = get_train_test_data(1.0, path=dataset_path)                 # load data
+    data, _             = get_train_test_data(path=dataset_path)                 # load data
     model, sde          = get_models()                          # initialize the model and sde
     optimizer           = get_optimizer()                       # initialize optimizer
-    ckpt_mgr, s_ckpt_mgr  = get_chkpt_manager(optimizer, model, checkpoint_dir=checkpoint_dir, secondary_checkpoint_dir=config.Training.secondary_checkpoint_dir.value)   # initialize checkpoint manager
+    checkpoint_manager, s_checkpoint_manager  = get_chkpt_manager(optimizer, model, checkpoint_dir=checkpoint_dir, secondary_checkpoint_dir=config.Training.secondary_checkpoint_dir.value)   # initialize checkpoint manager
 
     # training loop
     for epoch in range(config.Training.epochs.value):
@@ -96,7 +85,6 @@ def train(dataset_path=config.Data.data_path.value, checkpoint_dir=config.Traini
 
         ckpt_mgr.save()
         s_ckpt_mgr.save()
-        print_weights(epoch, model)
         model.save_weights(checkpoint_dir + f'/model_weights_epoch:{epoch}.weights.h5')
         # save checkpoint every 5 epochs
         # if (epoch + 1) % 5 == 0:

@@ -39,3 +39,9 @@ class Training(Enum):
     joint                       = True
     checkpoint_dir              = './checkpoints/' if is_macos() else '/content/drive/MyDrive/Project/MRItoPET/checkpoints/'
     secondary_checkpoint_dir    = '../checkpoints/' if is_macos() else '/content/checkpoints/'
+    batch_size                  = 2
+    epochs                      = 20
+    likelihood_weighting        = False
+    continuous                  = True
+    reduce_mean                 = False
+    joint                       = True

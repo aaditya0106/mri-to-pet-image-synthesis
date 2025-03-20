@@ -1,5 +1,5 @@
 import tensorflow as tf
-import config
+from tqdm import tqdm
 
 class EulerMaruyamaPredictor:
     """
@@ -23,7 +23,7 @@ class LangevinCorrector:
         self.snr = snr  # signal-to-noise ratio
         self.n_steps = n_steps  # number of correction steps
 
-    def update_func(self, x, t, mri):
+    def update_func(self, x, mri, t):
         """
         Applies Langevin correction to refine sampling.
         Langevin correction step:
@@ -58,10 +58,9 @@ def sampler(sde, mri, snr, n_steps, eps=1e-3, denoise=True):
     x = sde.prior_sampling(mri.shape)  # initialize from prior distribution
     timesteps = tf.linspace(sde.T, eps, sde.N)  # time steps
 
-    for i in range(sde.N):
+    for i in tqdm(range(sde.N), desc="Sampling Progress", total=sde.N):
         t = timesteps[i]
         vec_t = tf.ones(mri.shape[0]) * t
-        # x = tf.concat([x, mri])
         # predictor step (Euler-Maruyama)
         x, x_mean = predictor.update_func(x, vec_t, mri) 
         # corrector step (Langevin dynamics)
