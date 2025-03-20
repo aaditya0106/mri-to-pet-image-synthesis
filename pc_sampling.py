@@ -27,25 +27,24 @@ class LangevinCorrector:
         """
         Applies Langevin correction to refine sampling.
         Langevin correction step:
-            - Compute the gradient (delta_x log p_t(x, y)) using PET & MRI scores
-            - Compute step_size = (SNR * ||z|| / ||delta_x log p_t(x, y)||)^2
-            - x_i = x_{i+1} + step_size * delta_x log p_t(x_i, y) + sqrt(2 * step_size) * z
+            - Compute the gradient (s_theta) using score function
+            - Compute step_size = (SNR * ||z|| / ||s_theta||)^2
+            - x_j = x_{j-1} + step_size * s_theta(x_i, y) + sqrt(2 * step_size) * z
         Returns:
             x: Updated sample after langevin correction
             x_mean: Mean of x before adding noise
         """
-        for _ in tqdm(range(self.n_steps), desc="Correction Progress", total=self.n_steps):
+        for _ in range(self.n_steps):
             x_concat = tf.concat([x, mri], axis=-1)
-            grad = self.sde.pet_score_func(x_concat, t) # delta_x log p_t(PET, MRI)
-
+            score = self.sde.pet_score_func(x_concat, t)
             # langevin correction step
-            noise = tf.random.normal(tf.shape(x))
-            grad_norm = tf.norm(tf.reshape(grad, [tf.shape(grad)[0], -1]), axis=-1) # ||delta_x log p_t(x, y)||
-            noise_norm = tf.norm(tf.reshape(noise, [tf.shape(noise)[0], -1]), axis=-1) # ||z||
-            step_size = (self.snr * noise_norm / grad_norm) ** 2 # (SNR * ||z|| / ||grad||)^2
+            z = tf.random.normal(tf.shape(x))
+            z_norm = tf.norm(tf.reshape(z, [tf.shape(z)[0], -1]), axis=-1) # ||z||
+            score_norm = tf.norm(tf.reshape(score, [tf.shape(score)[0], -1]), axis=-1) # ||s_theta||
+            step_size = 2 * (self.snr * z_norm / score_norm) ** 2 # 2 * (SNR * ||z|| / ||score||)^2
 
-            x_mean = x + step_size[:, None, None, None] * grad  # x_mean = x + step_size * delta_x log p_t(x, y)
-            x = x_mean + tf.sqrt(2 * step_size)[:, None, None, None] * noise  # x = x_mean + sqrt(2 * step_size) * z, adding remaining diffusion noise
+            x_mean = x + step_size * score  # x_mean = x + step_size * s_theta
+            x = x_mean + tf.sqrt(2 * step_size) * z  # x = x_mean + sqrt(2 * step_size) * z, adding remaining diffusion noise
 
         return x, x_mean
 
@@ -57,17 +56,14 @@ def sampler(sde, mri, snr, n_steps, eps=1e-3, denoise=True):
     corrector = LangevinCorrector(sde, snr, n_steps)
 
     x = sde.prior_sampling(mri.shape)  # initialize from prior distribution
-    x = tf.expand_dims(tf.expand_dims(x, axis=-1), axis=0)  # add batch and channel dimension
-    mri = tf.cast(mri, dtype=tf.float32)
-    mri = tf.expand_dims(tf.expand_dims(mri, axis=-1), axis=0)  # add batch and channel dimension
     timesteps = tf.linspace(sde.T, eps, sde.N)  # time steps
 
     for i in tqdm(range(sde.N), desc="Sampling Progress", total=sde.N):
         t = timesteps[i]
-        vec_t = tf.ones(x.shape[0]) * t
-        # corrector step (Langevin dynamics)
-        x, x_mean = corrector.update_func(x, mri, vec_t)
+        vec_t = tf.ones(mri.shape[0]) * t
         # predictor step (Euler-Maruyama)
-        x, x_mean = predictor.update_func(x, mri, vec_t) 
+        x, x_mean = predictor.update_func(x, vec_t, mri) 
+        # corrector step (Langevin dynamics)
+        x, x_mean = corrector.update_func(x, vec_t, mri)
 
     return (x_mean if denoise else x)

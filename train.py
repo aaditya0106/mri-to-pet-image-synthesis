@@ -16,11 +16,10 @@ tf.random.set_seed(config.seed)
 
 def get_train_test_data(split=0.9, path=config.Data.data_path.value):
     data = load_data(path)
-    data = np.array(data)
     np.random.shuffle(data)
     split = int(len(data) * split)
     train_data = data[:split]
-    train_data = train_data[:(len(train_data)//config.Training.batch_size.value)*config.Training.batch_size.value]
+    train_data = train_data[ : (len(train_data) // config.Training.batch_size.value) * config.Training.batch_size.value ]
     train_data = tf.data.Dataset.from_tensor_slices(train_data).batch(config.Training.batch_size.value)
     test_data = data[split:]
     return train_data, test_data
@@ -34,7 +33,7 @@ def get_models():
     return model, sde
 
 def get_optimizer():
-    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, beta_1=0.9, clipnorm=1.0) # eps=1e-8, warmup_steps=5000
+    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3, beta_1=0.9, clipnorm=1.0) # eps=1e-8, warmup_steps=5000
     return optimizer
 
 def get_chkpt_manager(optimizer, model, checkpoint_dir=config.Training.checkpoint_dir.value, secondary_checkpoint_dir=config.Training.secondary_checkpoint_dir.value):
@@ -73,18 +72,20 @@ def train(dataset_path=config.Data.data_path.value, checkpoint_dir=config.Traini
         with tqdm(total=len(data), desc=f'Epoch {epoch + 1}/{config.Training.epochs.value}', unit='batch') as pbar:
             for batch in data:
                 start_time = time.time()
-                mri = tf.expand_dims(tf.cast(batch[:, 0, :, :], dtype=tf.float32), axis=-1) # adding dim for channel (b, h, w, c)
-                pet = tf.expand_dims(tf.cast(batch[:, 1, :, :], dtype=tf.float32), axis=-1) # adding dim for channel (b, h, w, c)
+                mri = tf.expand_dims(tf.cast(batch[:, :, :, 0], dtype=tf.float32), axis=-1) # adding dim for channel (b, h, w, c)
+                pet = tf.expand_dims(tf.cast(batch[:, :, :, 1], dtype=tf.float32), axis=-1) # adding dim for channel (b, h, w, c)
                 loss = train_eval_step(sde, model, optimizer, pet, mri, training=True)
                 total_loss += loss
                 cnt += 1
-                pbar.set_postfix(loss=total_loss/cnt)
+                pbar.set_postfix(loss=loss)
                 pbar.update(1)
 
-        print(f'Epoch {epoch + 1}/{config.Training.epochs.value}, Mean Loss: {total_loss / (1 if cnt==0 else cnt):.5f}, Time: {time.time() - start_time:.2f}s')
+        mean_loss = total_loss / (1 if cnt==0 else cnt)
+        print(f'Epoch {epoch + 1}/{config.Training.epochs.value}, Mean Loss: {mean_loss:.5f}, Time: {time.time() - start_time:.2f}s')
 
-        checkpoint_manager.save()
-        s_checkpoint_manager.save()
+        ckpt_mgr.save()
+        s_ckpt_mgr.save()
+        model.save_weights(checkpoint_dir + f'/model_weights_epoch:{epoch}.weights.h5')
         # save checkpoint every 5 epochs
         # if (epoch + 1) % 5 == 0:
         #     checkpoint_manager.save()
