@@ -8,6 +8,6 @@ test.ipynb
 .DS_Store
 checkpoints
 rough.ipynb
-checkpoint
-venv/
-t1_flair_asl_fdg_preprocessed/
+checkpoints
+.venv/
+.conda/
