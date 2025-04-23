@@ -24,7 +24,7 @@ def get_sigmas():
     sigma_max    = config.Model.sigma_max.value
     sigma_min    = config.Model.sigma_min.value
     num_scales   = config.Model.num_scales.value
-    log_linspace = tf.linspace(tf.math.log(sigma_max), tf.math.log(sigma_min), num_scales)
+    log_linspace = tf.linspace(tf.math.log(tf.cast(sigma_max, tf.float32)), tf.math.log(tf.cast(sigma_min, tf.float32)), num_scales)
     sigmas       = tf.exp(log_linspace) # to get the sigmas in original scale.
     return sigmas
 
@@ -40,7 +40,7 @@ def get_beta_schedule(type='linear'):
     elif type == 'quadratic':
         betas = tf.linspace(beta_start ** 0.5 + beta_end ** 0.5, 0, num_steps, dtype=tf.float64) ** 2
     elif type == 'exponential':
-        betas = tf.exp(tf.linspace(tf.math.log(beta_start), tf.math.log(beta_end), num_steps))
+        betas = tf.exp(tf.linspace(tf.math.log(tf.cast(beta_start, tf.float32)), tf.math.log(tf.cast(beta_end, tf.float32)), num_steps))
     elif type == 'cosine':
         betas = tf.cos(tf.linspace(0, np.pi/2, num_steps)) * (beta_end - beta_start) + beta_start
     else:
