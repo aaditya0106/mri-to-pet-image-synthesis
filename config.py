@@ -11,7 +11,7 @@ class Data(Enum):
     image_size                  = 128
     num_channels                = 2
     centered                    = False
-    data_path                   = '/content/drive/MyDrive/Project/MRItoPET/data/t1_flair_asl_fdg_preprocessed/'
+    data_path                   = 't1_flair_asl_fdg_preprocessed/'
     slices                      = 1
     
 class Model(Enum):
@@ -37,5 +37,5 @@ class Training(Enum):
     continuous                  = True
     reduce_mean                 = False
     joint                       = True
-    checkpoint_dir              = '/content/drive/MyDrive/Project/MRItoPET/checkpoints/final_push/'
-    secondary_checkpoint_dir    = '/content/checkpoints/final_push/'
+    checkpoint_dir              = 'checkpoints/'
+    secondary_checkpoint_dir    = None

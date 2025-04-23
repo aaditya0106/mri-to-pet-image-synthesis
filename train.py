@@ -38,12 +38,15 @@ def get_optimizer():
 
 def get_chkpt_manager(optimizer, model, checkpoint_dir=config.Training.checkpoint_dir.value, secondary_checkpoint_dir=config.Training.secondary_checkpoint_dir.value):
     os.makedirs(checkpoint_dir, exist_ok=True)
-    os.makedirs(secondary_checkpoint_dir, exist_ok=True)
-    
     checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
     
     checkpoint_manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=5)
-    secondary_checkpoint_manager = tf.train.CheckpointManager(checkpoint, secondary_checkpoint_dir, max_to_keep=5)
+    
+    if secondary_checkpoint_dir is not None:
+        os.makedirs(secondary_checkpoint_dir, exist_ok=True)
+        secondary_checkpoint_manager = tf.train.CheckpointManager(checkpoint, secondary_checkpoint_dir, max_to_keep=5)
+    else:
+        secondary_checkpoint_manager = None
     
     return checkpoint_manager, secondary_checkpoint_manager
 
@@ -104,7 +107,9 @@ def train(dataset_path=config.Data.data_path.value, checkpoint_dir=config.Traini
         print(f'Epoch {epoch + 1}/{config.Training.epochs.value}, Mean Loss: {mean_loss:.5f}, Time: {time.time() - start_time:.2f}s')
 
         ckpt_mgr.save()
-        s_ckpt_mgr.save()
+        if s_ckpt_mgr is not None:
+            s_ckpt_mgr.save()
+            
         model.save_weights(checkpoint_dir + f'/model_weights_epoch:{epoch}.weights.h5')
         # save checkpoint every 5 epochs
         # if (epoch + 1) % 5 == 0:
