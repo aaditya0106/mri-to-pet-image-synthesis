@@ -15,7 +15,7 @@ np.random.seed(config.seed)
 tf.random.set_seed(config.seed)
 
 def get_train_test_data(split=0.9, path=config.Data.data_path.value):
-    data = load_data(path)[:1]
+    data = load_data(path)[:1]*config.Training.batch_size.value
     np.random.shuffle(data)
     split = int(len(data) * split)
     train_data = data[:split]
@@ -26,10 +26,7 @@ def get_train_test_data(split=0.9, path=config.Data.data_path.value):
 
 def get_models():
     model = DDPM(activation=tf.keras.activations.swish)
-    sde = VESDE(
-        pet_score_func=lambda x, t: model(x, t, training=True),
-        mri_score_func=lambda x, t: model(x, t, training=True),
-    )
+    sde   = VESDE(score_func=lambda x, t: model(x, t, training=True))
     return model, sde
 
 def get_optimizer():

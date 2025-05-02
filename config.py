@@ -32,8 +32,8 @@ class Model(Enum):
     channel_merge               = True
 
 class Training(Enum):
-    batch_size                  = 1
-    epochs                      = 100
+    batch_size                  = 32
+    epochs                      = 350
     continuous                  = True
     reduce_mean                 = False
     joint                       = True
