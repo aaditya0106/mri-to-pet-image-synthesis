@@ -4,12 +4,12 @@ import config
 import tensorflow as tf
 import numpy as np
 
-class DDPM(tf.keras.Model):
+class UNet(tf.keras.Model):
     """
-    Denoising Diffusion Probabilistic Model
+    Denoising Diffusion Probabilistic Model style UNet
     """
     def __init__(self, activation):
-        super(DDPM, self).__init__()
+        super(UNet, self).__init__()
         self.activation_fn  = activation
         self.sigmas         = tf.constant(np.array(get_sigmas()), dtype=tf.float32)
         self.centered       = config.Data.centered.value

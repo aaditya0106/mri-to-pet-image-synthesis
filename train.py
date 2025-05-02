@@ -1,5 +1,5 @@
 from data.data import load_data
-from model.ddpm import DDPM
+from model.unet import UNet
 from model.sde import VESDE
 from loss import JDAMLoss
 import config
@@ -25,7 +25,7 @@ def get_train_test_data(split=0.9, path=config.Data.data_path.value):
     return train_data, test_data
 
 def get_models():
-    model = DDPM(activation=tf.keras.activations.swish)
+    model = UNet(activation=tf.keras.activations.swish)
     sde   = VESDE(score_func=lambda x, t: model(x, t, training=True))
     return model, sde
 
@@ -57,7 +57,7 @@ def train_eval_step(sde, model, optimizer, pet, mri, training=True):
 
 def print_weights(epoch, model_pred=None, n=5, checkpoint_dir=config.Training.checkpoint_dir.value):
     if model_pred is None:
-        model_pred = DDPM(activation=tf.keras.activations.swish)
+        model_pred = UNet(activation=tf.keras.activations.swish)
         ckpt = tf.train.Checkpoint(model=model_pred)
         ckpt_mgr = tf.train.CheckpointManager(ckpt, checkpoint_dir, max_to_keep=5)
         ckpt.restore(ckpt_mgr.latest_checkpoint)
