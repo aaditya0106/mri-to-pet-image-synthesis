@@ -8,4 +8,6 @@ test.ipynb
 .DS_Store
 checkpoints
 rough.ipynb
-checkpoint
+checkpoints
+.venv/
+.conda/

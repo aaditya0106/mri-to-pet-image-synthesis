@@ -11,7 +11,7 @@ class Data(Enum):
     image_size                  = 128
     num_channels                = 2
     centered                    = False
-    data_path                   = '../t1_flair_asl_fdg_preprocessed/' if is_macos() else '/content/drive/MyDrive/Project/MRItoPET/data/t1_flair_asl_fdg_preprocessed/'
+    data_path                   = 't1_flair_asl_fdg_preprocessed/'
     slices                      = 1
     
 class Model(Enum):
@@ -22,23 +22,23 @@ class Model(Enum):
     dropout                     = 0.0
     resamp_with_conv            = True
     conditional                 = True
-    num_scales                  = 100
-    sigma_min                   = 1e-2
+    num_scales                  = 50
+    sigma_min                   = 1e-3
     sigma_max                   = 50.0
     beta_min                    = 0.1
-    beta_max                    = 20.
+    beta_max                    = 50.0
     scale_by_sigma              = False
     out_channels                = 1
     channel_merge               = True
 
 class Training(Enum):
-    batch_size                  = 1
-    epochs                      = 100
+    batch_size                  = 8
+    epochs                      = 300
     continuous                  = True
     reduce_mean                 = False
     joint                       = True
-    checkpoint_dir              = './checkpoints/' if is_macos() else '/content/drive/MyDrive/Project/MRItoPET/checkpoints/'
-    secondary_checkpoint_dir    = '../checkpoints/' if is_macos() else '/content/checkpoints/'
+    checkpoint_dir              = 'checkpoints/'
+    secondary_checkpoint_dir    = None
     batch_size                  = 2
     epochs                      = 20
     likelihood_weighting        = False
