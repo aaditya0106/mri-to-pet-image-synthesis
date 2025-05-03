@@ -36,7 +36,7 @@ class LangevinCorrector:
         """
         for _ in range(self.n_steps):
             x_concat = tf.concat([x, mri], axis=-1)
-            score = self.sde.pet_score_func(x_concat, t)
+            score = self.sde.score_func(x_concat, t)
             # langevin correction step
             z = tf.random.normal(tf.shape(x))
             z_norm = tf.norm(tf.reshape(z, [tf.shape(z)[0], -1]), axis=-1) # ||z||

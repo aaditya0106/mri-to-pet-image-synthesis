@@ -39,8 +39,6 @@ class Training(Enum):
     joint                       = True
     checkpoint_dir              = 'checkpoints/'
     secondary_checkpoint_dir    = None
-    batch_size                  = 2
-    epochs                      = 20
     likelihood_weighting        = False
     continuous                  = True
     reduce_mean                 = False

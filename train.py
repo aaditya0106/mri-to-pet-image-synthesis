@@ -1,5 +1,5 @@
 from data.data import load_data
-from model.ddpm import DDPM
+from model.unet import UNet
 from model.sde import VESDE
 from loss import JDAMLoss
 import config
@@ -16,6 +16,7 @@ tf.random.set_seed(config.seed)
 
 def get_train_test_data(split=0.9, path=config.Data.data_path.value):
     data = load_data(path)
+    data = load_data(path)[:1]*config.Training.batch_size.value
     np.random.shuffle(data)
     split = int(len(data) * split)
     train_data = data[:split]
@@ -25,11 +26,8 @@ def get_train_test_data(split=0.9, path=config.Data.data_path.value):
     return train_data, test_data
 
 def get_models():
-    model = DDPM(activation=tf.keras.activations.swish)
-    sde = VESDE(
-        pet_score_func=lambda x, t: model(x, t, training=True),
-        mri_score_func=lambda x, t: model(x, t, training=True),
-    )
+    model = UNet(activation=tf.keras.activations.swish)
+    sde   = VESDE(score_func=lambda x, t: model(x, t, training=True))
     return model, sde
 
 def get_optimizer():
@@ -80,6 +78,17 @@ def train_eval_step(sde, model, optimizer, pet, mri, training=True):
     else:
         loss = loss_klass.compute_loss_2(model, pet, mri)
     return loss
+
+def print_weights(epoch, model_pred=None, n=5, checkpoint_dir=config.Training.checkpoint_dir.value):
+    if model_pred is None:
+        model_pred = UNet(activation=tf.keras.activations.swish)
+        ckpt = tf.train.Checkpoint(model=model_pred)
+        ckpt_mgr = tf.train.CheckpointManager(ckpt, checkpoint_dir, max_to_keep=5)
+        ckpt.restore(ckpt_mgr.latest_checkpoint)
+    if model_pred.trainable_weights:
+        print("epoch: ", epoch, " weights: ", model_pred.trainable_weights[0].numpy()[0, :n])
+    else:
+        print("epoch: ", epoch, " no weights found")
 
 def train(dataset_path=config.Data.data_path.value, checkpoint_dir=config.Training.checkpoint_dir.value):
     data, _             = get_train_test_data(1.0, path=dataset_path)                 # load data
