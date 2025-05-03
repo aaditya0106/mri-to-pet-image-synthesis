@@ -15,14 +15,14 @@ np.random.seed(config.seed)
 tf.random.set_seed(config.seed)
 
 def get_train_test_data(split=0.9, path=config.Data.data_path.value):
-    data = load_data(path)
     data = load_data(path)[:1]*config.Training.batch_size.value
-    np.random.shuffle(data)
-    split = int(len(data) * split)
-    train_data = data[:split]
-    train_data = train_data[ : (len(train_data) // config.Training.batch_size.value) * config.Training.batch_size.value ]
-    train_data = tf.data.Dataset.from_tensor_slices(train_data).batch(config.Training.batch_size.value)
-    test_data = data[split:]
+    size = len(data)
+    split = int(size * split)
+    data = tf.data.Dataset.from_tensor_slices(data)
+    data = data.shuffle(buffer_size=size, reshuffle_each_iteration=True)
+    batch_size = config.Training.batch_size.value
+    train_data = data.take(split).batch(batch_size, drop_remainder=True)
+    test_data = data.skip(split).batch(batch_size, drop_remainder=False)
     return train_data, test_data
 
 def get_models():
