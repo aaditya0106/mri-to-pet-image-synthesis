@@ -27,7 +27,7 @@ def get_train_test_data(split=0.9, path=config.Data.data_path.value):
 
 def get_models():
     model = UNet(activation=tf.keras.activations.swish)
-    sde   = VESDE(score_func=lambda x, t: model(x, t, training=True))
+    sde   = VESDE(score_func=model)
     return model, sde
 
 def get_optimizer():

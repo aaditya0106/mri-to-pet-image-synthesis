@@ -5,10 +5,10 @@ data_explore.ipynb
 __pycache__
 t1_flair_asl_fdg_preprocessed
 test.ipynb
+train.ipynb
 .DS_Store
 checkpoints
 rough.ipynb
 checkpoints
 .venv/
 .conda/
-train.ipynb

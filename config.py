@@ -27,7 +27,7 @@ class Model(Enum):
     sigma_max                   = 50.0
     beta_min                    = 0.1
     beta_max                    = 50.0
-    scale_by_sigma              = False
+    scale_by_sigma              = True
     out_channels                = 1
     channel_merge               = True
 
@@ -40,6 +40,3 @@ class Training(Enum):
     checkpoint_dir              = 'checkpoints/'
     secondary_checkpoint_dir    = None
     likelihood_weighting        = False
-    continuous                  = True
-    reduce_mean                 = False
-    joint                       = True
