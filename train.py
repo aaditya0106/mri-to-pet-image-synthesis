@@ -109,7 +109,6 @@ def train(dataset_path=config.Data.data_path.value, checkpoint_dir=config.Traini
         ckpt_mgr.save()
         if s_ckpt_mgr is not None:
             s_ckpt_mgr.save()
-            
         model.save_weights(checkpoint_dir + f'/model_weights_epoch:{epoch}.weights.h5')
         # save checkpoint every 5 epochs
         # if (epoch + 1) % 5 == 0:

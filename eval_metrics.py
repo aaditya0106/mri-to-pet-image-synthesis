@@ -6,11 +6,19 @@ def SSIM(pet_generated, pet_original):
     """
     Calculate Structural Similarity Index score
     """
-    pet_generated = cv2.cvtColor(pet_generated, cv2.COLOR_BGR2GRAY)
-    pet_original  = cv2.cvtColor(pet_original, cv2.COLOR_BGR2GRAY)
-    (score, diff) = SSIM(pet_generated, pet_original, full=True)
+    if isinstance(pet_generated, tf.Tensor):
+        pet_generated = pet_generated.numpy()
+    if isinstance(pet_original, tf.Tensor):
+        pet_original = pet_original.numpy()
+    if len(pet_generated.shape) == 4:
+        pet_generated = pet_generated[0, :, :, 0]
+    if len(pet_original.shape) == 4:
+        pet_original = pet_original[0, :, :, 0]
+
+    data_range = pet_generated.max() - pet_generated.min()
+    (score, diff) = SSIM(pet_generated, pet_original, full=True, data_range=data_range)
     diff = (diff * 255).astype("uint8")
-    return score, diff
+    return score
 
 def PSNR(pet_generated, pet_original):
     """
@@ -18,4 +26,4 @@ def PSNR(pet_generated, pet_original):
     It's ratio between the max possible power of an image and the power of corrupting noise that affects its quality.
     """
     psnr = tf.image.psnr(pet_original, pet_generated, max_val=1.0)
-    return psnr
+    return psnr.numpy()[0]
