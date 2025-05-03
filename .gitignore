@@ -11,3 +11,4 @@ rough.ipynb
 checkpoints
 .venv/
 .conda/
+train.ipynb
