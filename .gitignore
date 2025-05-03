@@ -7,4 +7,8 @@ t1_flair_asl_fdg_preprocessed
 test.ipynb
 .DS_Store
 checkpoints
+rough.ipynb
+checkpoints
+.venv/
+.conda/
 train.ipynb

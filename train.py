@@ -15,6 +15,7 @@ np.random.seed(config.seed)
 tf.random.set_seed(config.seed)
 
 def get_train_test_data(split=0.9, path=config.Data.data_path.value):
+    data = load_data(path)
     data = load_data(path)[:1]*config.Training.batch_size.value
     np.random.shuffle(data)
     split = int(len(data) * split)
@@ -35,14 +36,37 @@ def get_optimizer():
 
 def get_chkpt_manager(optimizer, model, checkpoint_dir=config.Training.checkpoint_dir.value, secondary_checkpoint_dir=config.Training.secondary_checkpoint_dir.value):
     os.makedirs(checkpoint_dir, exist_ok=True)
-    os.makedirs(secondary_checkpoint_dir, exist_ok=True)
-    
     checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
     
     checkpoint_manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=5)
-    secondary_checkpoint_manager = tf.train.CheckpointManager(checkpoint, secondary_checkpoint_dir, max_to_keep=5)
+    
+    if secondary_checkpoint_dir is not None:
+        os.makedirs(secondary_checkpoint_dir, exist_ok=True)
+        secondary_checkpoint_manager = tf.train.CheckpointManager(checkpoint, secondary_checkpoint_dir, max_to_keep=5)
+    else:
+        secondary_checkpoint_manager = None
     
     return checkpoint_manager, secondary_checkpoint_manager
+
+def load_latest_checkpoint(checkpoint_manager):
+    """
+    Loads the latest checkpoint from the given checkpoint manager.
+
+    Args:
+        checkpoint_manager: An object that manages checkpoints, typically containing
+                             attributes 'latest_checkpoint' and 'checkpoint'.
+
+    Returns:
+        The checkpoint object after restoring from the latest checkpoint, if available.
+        If no checkpoint is found, it returns the checkpoint object without restoring.
+    """
+    latest_checkpoint = checkpoint_manager.latest_checkpoint
+    if latest_checkpoint:
+        checkpoint_manager.checkpoint.restore(latest_checkpoint).expect_partial()
+        print(f"Restored from {latest_checkpoint}")
+        return checkpoint_manager.checkpoint
+    else:
+        print("No checkpoint found. Starting from scratch.")
 
 def train_eval_step(sde, model, optimizer, pet, mri, training=True):
     loss_klass = JDAMLoss(sde, train=training)
@@ -85,15 +109,15 @@ def train(dataset_path=config.Data.data_path.value, checkpoint_dir=config.Traini
                 loss = train_eval_step(sde, model, optimizer, pet, mri, training=True)
                 total_loss += loss
                 cnt += 1
-                pbar.set_postfix(loss=loss)
+                pbar.set_postfix(loss=total_loss.numpy()/cnt)
                 pbar.update(1)
 
         mean_loss = total_loss / (1 if cnt==0 else cnt)
         print(f'Epoch {epoch + 1}/{config.Training.epochs.value}, Mean Loss: {mean_loss:.5f}, Time: {time.time() - start_time:.2f}s')
 
         ckpt_mgr.save()
-        s_ckpt_mgr.save()
-        print_weights(epoch, model)
+        if s_ckpt_mgr is not None:
+            s_ckpt_mgr.save()
         model.save_weights(checkpoint_dir + f'/model_weights_epoch:{epoch}.weights.h5')
         # save checkpoint every 5 epochs
         # if (epoch + 1) % 5 == 0:
