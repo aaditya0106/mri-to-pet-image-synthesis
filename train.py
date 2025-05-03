@@ -72,11 +72,11 @@ def train_eval_step(sde, model, optimizer, pet, mri, training=True):
     loss_klass = JDAMLoss(sde, train=training)
     if training:
         with tf.GradientTape() as tape:
-            loss = loss_klass.compute_loss_2(model, pet, mri)
+            loss = loss_klass.compute_loss(model, pet, mri)
         gradients = tape.gradient(loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     else:
-        loss = loss_klass.compute_loss_2(model, pet, mri)
+        loss = loss_klass.compute_loss(model, pet, mri)
     return loss
 
 def print_weights(epoch, model_pred=None, n=5, checkpoint_dir=config.Training.checkpoint_dir.value):
