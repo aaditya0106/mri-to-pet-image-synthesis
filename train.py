@@ -15,19 +15,19 @@ np.random.seed(config.seed)
 tf.random.set_seed(config.seed)
 
 def get_train_test_data(split=0.9, path=config.Data.data_path.value):
-    data = load_data(path)
     data = load_data(path)[:1]*config.Training.batch_size.value
-    np.random.shuffle(data)
-    split = int(len(data) * split)
-    train_data = data[:split]
-    train_data = train_data[ : (len(train_data) // config.Training.batch_size.value) * config.Training.batch_size.value ]
-    train_data = tf.data.Dataset.from_tensor_slices(train_data).batch(config.Training.batch_size.value)
-    test_data = data[split:]
+    size = len(data)
+    split = int(size * split)
+    data = tf.data.Dataset.from_tensor_slices(data)
+    data = data.shuffle(buffer_size=size, reshuffle_each_iteration=True)
+    batch_size = config.Training.batch_size.value
+    train_data = data.take(split).batch(batch_size, drop_remainder=True)
+    test_data = data.skip(split).batch(batch_size, drop_remainder=False)
     return train_data, test_data
 
 def get_models():
     model = UNet(activation=tf.keras.activations.swish)
-    sde   = VESDE(score_func=lambda x, t: model(x, t, training=True))
+    sde   = VESDE(score_func=model)
     return model, sde
 
 def get_optimizer():
@@ -72,11 +72,11 @@ def train_eval_step(sde, model, optimizer, pet, mri, training=True):
     loss_klass = JDAMLoss(sde, train=training)
     if training:
         with tf.GradientTape() as tape:
-            loss = loss_klass.compute_loss_2(model, pet, mri)
+            loss = loss_klass.compute_loss(model, pet, mri)
         gradients = tape.gradient(loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     else:
-        loss = loss_klass.compute_loss_2(model, pet, mri)
+        loss = loss_klass.compute_loss(model, pet, mri)
     return loss
 
 def print_weights(epoch, model_pred=None, n=5, checkpoint_dir=config.Training.checkpoint_dir.value):

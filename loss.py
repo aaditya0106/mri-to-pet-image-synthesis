@@ -28,7 +28,7 @@ class JDAMLoss:
         noisy_input = pet_clean + noise * z # perturb data with noise
         noisy_input = tf.concat([noisy_input, mri_clean], axis=-1) # concatenate MRI data
         
-        score = score_func(noisy_input, labels=noise, training=self.train) # labels can be noise because f=0 in VESDE
+        score = score_func(noisy_input, labels=t, training=self.train) # labels can be noise because f=0 in VESDE
 
         losses = tf.square(noise * score + z)
         losses = tf.reduce_mean(tf.reshape(losses, [tf.shape(losses)[0], -1]), axis=-1) # compute mean loss
