@@ -13,16 +13,18 @@ import argparse
 
 np.random.seed(config.seed)
 tf.random.set_seed(config.seed)
+#tf.keras.mixed_precision.set_global_policy('mixed_float16')
 
 def get_train_test_data(split=0.9, path=config.Data.data_path.value):
-    data = load_data(path)[:1]*config.Training.batch_size.value
+    data = load_data(path)
+    data = np.repeat(data[:1], config.Training.batch_size.value, axis=0) # for debugging purpose
     size = len(data)
-    split = int(size * split)
+    split_idx = int(size * split)
     data = tf.data.Dataset.from_tensor_slices(data)
     data = data.shuffle(buffer_size=size, reshuffle_each_iteration=True)
     batch_size = config.Training.batch_size.value
-    train_data = data.take(split).batch(batch_size, drop_remainder=True)
-    test_data = data.skip(split).batch(batch_size, drop_remainder=False)
+    train_data = data.take(split_idx).batch(batch_size, drop_remainder=True)
+    test_data = data.skip(split_idx).batch(batch_size, drop_remainder=False)
     return train_data, test_data
 
 def get_models():
@@ -31,7 +33,7 @@ def get_models():
     return model, sde
 
 def get_optimizer():
-    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3, beta_1=0.9, clipnorm=1.0) # eps=1e-8, warmup_steps=5000
+    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, beta_1=0.9)#, clipnorm=1.0) # eps=1e-8, warmup_steps=5000
     return optimizer
 
 def get_chkpt_manager(optimizer, model, checkpoint_dir=config.Training.checkpoint_dir.value, secondary_checkpoint_dir=config.Training.secondary_checkpoint_dir.value):
@@ -96,14 +98,16 @@ def train(dataset_path=config.Data.data_path.value, checkpoint_dir=config.Traini
     optimizer           = get_optimizer()                       # initialize optimizer
     ckpt_mgr, s_ckpt_mgr  = get_chkpt_manager(optimizer, model, checkpoint_dir=checkpoint_dir, secondary_checkpoint_dir=config.Training.secondary_checkpoint_dir.value)   # initialize checkpoint manager
 
+    running_loss = None
+
     # training loop
     for epoch in range(config.Training.epochs.value):
         total_loss = 0.
         cnt = 0
         start_time = time.time()
-        with tqdm(total=len(data), desc=f'Epoch {epoch + 1}/{config.Training.epochs.value}', unit='batch') as pbar:
+        cardinality = tf.data.experimental.cardinality(data).numpy()
+        with tqdm(total=cardinality if cardinality > 0 else None, desc=f'Epoch {epoch + 1}/{config.Training.epochs.value}', unit='batch') as pbar:
             for batch in data:
-                start_time = time.time()
                 mri = tf.expand_dims(tf.cast(batch[:, :, :, 0], dtype=tf.float32), axis=-1) # adding dim for channel (b, h, w, c)
                 pet = tf.expand_dims(tf.cast(batch[:, :, :, 1], dtype=tf.float32), axis=-1) # adding dim for channel (b, h, w, c)
                 loss = train_eval_step(sde, model, optimizer, pet, mri, training=True)
@@ -111,9 +115,14 @@ def train(dataset_path=config.Data.data_path.value, checkpoint_dir=config.Traini
                 cnt += 1
                 pbar.set_postfix(loss=total_loss.numpy()/cnt)
                 pbar.update(1)
+                # exponential running average
+                if running_loss is None:
+                    running_loss = loss
+                else:
+                    running_loss = 0.99 * running_loss + 0.01 * loss
 
         mean_loss = total_loss / (1 if cnt==0 else cnt)
-        print(f'Epoch {epoch + 1}/{config.Training.epochs.value}, Mean Loss: {mean_loss:.5f}, Time: {time.time() - start_time:.2f}s')
+        print(f'Epoch {epoch + 1}/{config.Training.epochs.value}, Curr Loss: {mean_loss:.5f}, Running Avg Loss: {running_loss:.5f}, Time: {time.time() - start_time:.2f}s')
 
         ckpt_mgr.save()
         if s_ckpt_mgr is not None:

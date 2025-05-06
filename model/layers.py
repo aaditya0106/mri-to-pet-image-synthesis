@@ -72,24 +72,24 @@ class TimestepEmbedding(tf.keras.layers.Layer):
 class Attention(tf.keras.layers.Layer):
     def __init__(self, units):
         super(Attention, self).__init__()
-        self.group_norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=1e-5)
+        self.norm = tf.keras.layers.LayerNormalization(axis=-1, epsilon=1e-5)
         self.nin_0 = NIN(units)
         self.nin_1 = NIN(units)
         self.nin_2 = NIN(units)
         self.nin_3 = NIN(units, init_scale=0.0)
 
     def call(self, x):
-        B, H, W, C = tf.shape(x) # batch_size, height, width, num_channels
-        h = self.group_norm(x) # helps stabilize training by making training data more consistent
+        B, H, W, C = tf.shape(x)[0], tf.shape(x)[1], tf.shape(x)[2], tf.shape(x)[3] # batch_size, height, width, num_channels
+        h = self.norm(x) # helps stabilize training by making training data more consistent
         q = self.nin_0(h) # query
         k = self.nin_1(h) # key
         v = self.nin_2(h) # value
 
-        w = tf.einsum('bhwc,bijc->bhwij', q, k) * (tf.cast(C, tf.float32) ** -0.5) # scaled dot-product to find similarity between query and key
-        w = tf.reshape(w, (B, H, W, H * W))
+        scale = tf.cast(tf.math.rsqrt(tf.cast(C, x.dtype)), x.dtype) # scaling factor for attention scores
+        w = tf.einsum('bhwc,bijc->bhwij', q, k) * scale # scaled dot-product to find similarity between query and key
+        w = tf.reshape(w, tf.stack([B, H, W, H * W]))
         w = tf.nn.softmax(w, axis=-1) # ensures attention scores sum to 1. higher values indicate higher importance
-        w = tf.reshape(w, (B, H, W, H, W))
-
+        w = tf.reshape(w, tf.stack([B, H, W, H, W]))
         h = tf.einsum('bhwij,bijc->bhwc', w, v) # apply attention weights to value
         h = self.nin_3(h)
 
@@ -108,7 +108,8 @@ class ResnetBlockDDPM(tf.keras.layers.Layer):
         self.conv_shortcut = conv_shortcut
         self.activation = activation
 
-        self.groupNorm0 = tf.keras.layers.GroupNormalization(groups=2, epsilon=1e-6) # groups = 32
+        groups = min(32, out) # for group normalization
+        self.groupNorm0 = tf.keras.layers.GroupNormalization(groups=groups, epsilon=1e-6)
         self.conv0 = Conv3x3(out)
 
         # If a time embedding dimension is provided, create a dense layer (with ddpm style initialization) to process it.
@@ -120,7 +121,7 @@ class ResnetBlockDDPM(tf.keras.layers.Layer):
             )
         else:
             self.dense = None
-        self.groupNorm1 = tf.keras.layers.GroupNormalization(groups=2, epsilon=1e-6) # groups = 32
+        self.groupNorm1 = tf.keras.layers.GroupNormalization(groups=groups, epsilon=1e-6) # groups = 32
         self.dropout0 = tf.keras.layers.Dropout(dropout)
         self.conv1 = Conv3x3(out, init_scale=1e-3) # init_scale=0 means that this layer starts with near-zero weights
 
@@ -164,15 +165,15 @@ class Downsample(tf.keras.layers.Layer):
             self.conv = Conv3x3(out, stride=2, padding=0) # padding=0 means we'll handle it manually before this layer
 
     def call(self, x):
-        _, H, W, _ = tf.shape(x)
+        H, W = tf.shape(x)[1], tf.shape(x)[2]
         if self.with_conv:
             # padding="same" usually applies symmetric padding, which might not produce the same spatial alignment.
             # Therefore, we pad only right and bottom to ensure when the convolution with stride 2 is applied, 
             # the output dimensions are exactly half of the input
-            pad_h = H % 2  # if height is odd, pad +1
-            pad_w = W % 2  # if width is odd, pad +1
-            if pad_w or pad_h:
-                x = tf.pad(x, paddings=[[0, 0], [0, pad_h], [0, pad_w], [0, 0]]) # left, right, top, bottom
+            pad_h = tf.where(H % 2 > 0, 1, 0)  # if height is odd, pad +1
+            pad_w = tf.where(W % 2 > 0, 1, 0)  # if width is odd, pad +1
+            paddings = tf.stack([[0, 0], [0, pad_h], [0, pad_w], [0, 0]], axis=0) # left, right, top, bottom
+            x = tf.pad(x, paddings)
             x = self.conv(x)
         else:
             x = tf.keras.layers.AveragePooling2D(pool_size=(2, 2), strides=2, padding='valid')(x)
@@ -189,9 +190,9 @@ class Upsample(tf.keras.layers.Layer):
             self.conv = Conv3x3(out)
 
     def call(self, x):
-        _, H, W, _ = tf.shape(x)
+        H, W = tf.shape(x)[1], tf.shape(x)[2]
         # Upsample spatial dimensions by a factor of 2 using nearest neighbor interpolation.
-        h = tf.image.resize(x, size=(H*2, W*2), method='nearest')
+        h = tf.image.resize(x, size=tf.stack([H * 2, W * 2]), method='nearest')
         if self.with_conv:
             h = self.conv(h)
         return h

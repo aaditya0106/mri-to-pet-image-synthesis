@@ -127,6 +127,7 @@ class BottleneckBlock(tf.keras.layers.Layer):
         h = self.resnet2(h, time_emb, training=training)
         return h
 
+  
 class UpsampleBlock(tf.keras.layers.Layer):
     """
     Upsamples the feature maps.
@@ -141,57 +142,50 @@ class UpsampleBlock(tf.keras.layers.Layer):
         self.channel_mult      = config.Model.channel_mult.value # channel multiplier for each resolution channel
         self.num_resolutions   = len(self.channel_mult)    # number of times downsample
         self.all_resolutions   = [config.Data.image_size.value // (2 ** i) for i in range(len(self.channel_mult))]
-        self.layers_list       = []
+        self.resnet_blocks     = []
+        self.attn_blocks       = []
+        self.upsample_layers   = []
 
-        self.ResnetBlockPartial = partial(l.ResnetBlockDDPM, activation=activation_fn, time_emb_dim=4*nf, dropout=config.Model.dropout.value)
-        self.AttnBlockPartial   = partial(l.Attention)
+        for level in reversed(range(self.num_resolutions)):
+            lvl_resnets, lvl_attns = [], []
+            out_channel = self.nf * self.channel_mult[level]
+            for block in range(self.num_resnet_blocks + 1):
+                lvl_resnets.append(l.ResnetBlockDDPM(
+                    inp=None,
+                    out=out_channel, 
+                    activation=activation_fn,
+                    time_emb_dim=4*out_channel,
+                    dropout=config.Model.dropout.value))
+                if self.all_resolutions[level] in self.attn_resolutions:
+                    lvl_attns.append(l.Attention(out_channel))
+                else:
+                    lvl_attns.append(None)
+            self.resnet_blocks.append(lvl_resnets)
+            self.attn_blocks.append(lvl_attns)
+            if level > 0:
+                self.upsample_layers.append(l.Upsample(out_channel, with_conv=self.resamp_with_conv))
+            else:
+                self.upsample_layers.append(None)
 
     def call(self, x, time_emb, skip_connections, training=False):
         # print(f"calling from upsample block with {len(skip_connections)} skip connections")
         h = x
-        for level in reversed(range(self.num_resolutions)):
+        for level in range(self.num_resolutions):
             if not skip_connections:
                 raise ValueError("Ran out of skip connections! Upsampling expected more.")
             skip = skip_connections.pop()
             # print(f"Used 1, {len(skip_connections)} skip connections left")
             for block in range(self.num_resnet_blocks + 1):
                 # print(f"upsampling: h_shape={h.shape}, skip_shape={skip.shape}")
-                h = tf.image.resize(h, size=(skip.shape[1], skip.shape[2]), method='nearest') # bilinear
+                h = tf.image.resize(h, size=(skip.shape[1], skip.shape[2]), method='nearest')
                 h = tf.concat([h, skip], axis=-1) # concatenate skip connection from the downsampling block
-                out_channel = self.nf * self.channel_mult[level]
-                h = self.ResnetBlockPartial(h.shape[-1], out_channel)(h, time_emb, training=training)
-                if self.all_resolutions[level] in self.attn_resolutions:
-                    h = self.AttnBlockPartial(h.shape[-1])(h, training=training)
-            if level > 0:
-                upsample = l.Upsample(h.shape[-1], with_conv=self.resamp_with_conv)
-                h = upsample(h)
+                h = self.resnet_blocks[level][block](h, time_emb, training=training)
+                if self.attn_blocks[level][block] is not None:
+                    h = self.attn_blocks[level][block](h, training=training)
+            if self.upsample_layers[level] is not None:
+                h = self.upsample_layers[level](h)
         return h
 
-    # def call(self, x, time_emb, skip_connections, training=False):
-    #     print(f"calling from upsample block with {len(skip_connections)} skip connections")
-    #     h = x
-    #     # reverse looping through resolution levels
-    #     for level in reversed(range(self.num_resolutions)):
-    #         for block in range(self.num_resnet_blocks + 1):
-    #             if not skip_connections:
-    #                 raise ValueError(f"Ran out of skip connections! Upsampling expected more.")
-    #             skip = skip_connections.pop()
-    #             print(f"upsampling: h_shape={h.shape}, skip_shape={skip.shape}")
-    #             print(f"Used 1, {len(skip_connections)} skip connections left")
-    #             # resize to match skip. downsample reduces sizes like (22, 26) to (10, 12) so that output is also even
-    #             # but when you upsample it to (20, 24), it won't match the shape of skip connection
-    #             h = tf.image.resize(h, size=(skip.shape[1], skip.shape[2]), method='nearest')
-    #             h = tf.concat([h, skip], axis=-1) # concatenate skip connection from the downsampling block
-    #             out_channel = self.nf * self.channel_mult[level]
-    #             h = self.ResnetBlockPartial(h.shape[-1], out_channel)(h, time_emb, training=training)
-    #             # apply attention if the current resolution is in the attn resolutions
-    #             if self.all_resolutions[level] in self.attn_resolutions:
-    #                 h = self.AttnBlockPartial(h.shape[-1])(h, training=training)
-    #         # upsample if not at the highest resolution.
-    #         if level > 0:
-    #             upsample = l.Upsample(h.shape[-1], with_conv=self.resamp_with_conv)
-    #             h = upsample(h)
-    #     return h
 
 class FinalBlock(tf.keras.layers.Layer):
     """

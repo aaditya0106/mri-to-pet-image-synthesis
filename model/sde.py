@@ -1,4 +1,4 @@
-from utils import get_beta_schedule
+from utils import get_sigmas
 import config
 import tensorflow as tf
 import numpy as np
@@ -13,7 +13,7 @@ class VESDE(tf.keras.Model):
         self.N = config.Model.num_scales.value
         self.sigma_min = config.Model.sigma_min.value
         self.sigma_max = config.Model.sigma_max.value
-        self.sigmas = get_beta_schedule('exponential')
+        self.sigmas = get_sigmas()
         self.score_func = score_func
 
     def marginal_probability(self, x, t):
@@ -66,7 +66,7 @@ class VESDE(tf.keras.Model):
         g = tf.sqrt(sigma ** 2 - prev_sigma ** 2) # compute diffusion coefficient
 
         x_concat = tf.concat([x, mri], axis=-1)
-        score = self.pet_score_func(x_concat, t) # compute PET score function gradient
+        score = self.score_func(x_concat, t) # compute PET score function gradient
 
         z = tf.random.normal(tf.shape(x), dtype=x.dtype)
         x_mean = x + g ** 2 * score
