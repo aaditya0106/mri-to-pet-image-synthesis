@@ -21,11 +21,13 @@ def get_sigmas():
     """
     Returns an arrary of noise levels
     """
-    sigma_max    = config.Model.sigma_max.value
-    sigma_min    = config.Model.sigma_min.value
-    num_scales   = config.Model.num_scales.value
-    log_linspace = tf.linspace(tf.math.log(tf.cast(sigma_max, tf.float32)), tf.math.log(tf.cast(sigma_min, tf.float32)), num_scales)
-    sigmas       = tf.exp(log_linspace) # to get the sigmas in original scale.
+    sigma_max  = config.Model.sigma_max.value
+    sigma_min  = config.Model.sigma_min.value
+    num_scales = config.Model.num_scales.value
+    t_vals     = tf.linspace(0.0, 1.0, num_scales)
+    sigmas     = sigma_min * (sigma_max/sigma_min)**t_vals
+    # log_linspace = tf.linspace(tf.math.log(tf.cast(sigma_max, tf.float32)), tf.math.log(tf.cast(sigma_min, tf.float32)), num_scales)
+    # sigmas       = tf.exp(log_linspace) # to get the sigmas in original scale.
     return sigmas
 
 def get_beta_schedule(type='linear'):

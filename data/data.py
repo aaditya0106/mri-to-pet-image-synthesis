@@ -1,6 +1,7 @@
 import nibabel as nib
 import numpy as np
 import os
+import re
 import config
 import pickle
 
@@ -60,7 +61,9 @@ def load_data(data_path='../t1_flair_asl_fdg_preprocessed', slices=1, norm_path=
         A list of tuples: (normalized_T1_slice, normalized_FDG_slice)
     """
     data = []
-    files = os.listdir(data_path)
+    pattern = re.compile(r"^\d{3}_S_\d{4}$")
+    files = [f for f in os.listdir(data_path) if pattern.match(f)]
+    
     for file in files:
         t1_path  = os.path.join(data_path, file, 'T1_MNI.nii.gz')
         fdg_path = os.path.join(data_path, file, 'FDG_MNI.nii.gz')

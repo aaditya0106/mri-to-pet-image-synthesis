@@ -38,7 +38,9 @@ class UNet(tf.keras.Model):
         h = self.final_block(h, training=training)
 
         if self.scale_by_sigma:
-            used_sigmas = tf.gather(self.sigmas, labels) # select sigma corresponding to each label
+            int_labels = tf.cast(labels * (config.Model.num_scales.value - 1), tf.int32)
+            used_sigmas = tf.gather(self.sigmas, int_labels) # select sigma corresponding to each label
             used_sigmas = tf.reshape(used_sigmas, [-1, 1, 1, 1])
+            used_sigmas = tf.cast(used_sigmas, dtype=h.dtype)
             h = h / used_sigmas
         return h

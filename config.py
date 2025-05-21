@@ -11,8 +11,8 @@ class Data(Enum):
     image_size                  = 128
     num_channels                = 2
     centered                    = False
-    data_path                   = 't1_flair_asl_fdg_preprocessed/'
-    slices                      = 8
+    data_path                   = '../../' # t1_flair_asl_fdg_preprocessed
+    slices                      = 1
     
 class Model(Enum):
     nf                          = 128
@@ -22,18 +22,18 @@ class Model(Enum):
     dropout                     = 0.0
     resamp_with_conv            = True
     conditional                 = True
-    num_scales                  = 50
-    sigma_min                   = 0.1
-    sigma_max                   = 10.0
+    num_scales                  = 20
+    sigma_min                   = 1e-3
+    sigma_max                   = 50.0
     beta_min                    = 0.1
     beta_max                    = 50.0
-    scale_by_sigma              = True
+    scale_by_sigma              = False
     out_channels                = 1
     channel_merge               = True
 
 class Training(Enum):
-    batch_size                  = 16
-    epochs                      = 10
+    batch_size                  = 8
+    epochs                      = 500
     continuous                  = True
     reduce_mean                 = False
     joint                       = True
