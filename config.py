@@ -11,7 +11,7 @@ class Data(Enum):
     image_size                  = 128
     num_channels                = 2
     centered                    = False
-    data_path                   = '../../'
+    data_path                   = '../../' # t1_flair_asl_fdg_preprocessed
     slices                      = 1
     
 class Model(Enum):
