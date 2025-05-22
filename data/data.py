@@ -48,7 +48,7 @@ def load_normalizer(norm_path='normalizer.pkl'):
         normalizer = pickle.load(f)
     return normalizer
 
-def load_data(data_path='../t1_flair_asl_fdg_preprocessed', slices=1, norm_path=config.Training.checkpoint_dir.value+'normalizer/normalizer.pkl'):
+def load_data(data_path='../t1_flair_asl_fdg_preprocessed', slices=1, num_files=None, norm_path=config.Training.checkpoint_dir.value+'normalizer/normalizer.pkl'):
     """
     Load data from subfolders in data_path. For each subject, load the T1 and FDG images,
     extract a centered block of slices (slices argument), pair corresponding slices,
@@ -63,8 +63,11 @@ def load_data(data_path='../t1_flair_asl_fdg_preprocessed', slices=1, norm_path=
     data = []
     pattern = re.compile(r"^\d{3}_S_\d{4}$")
     files = [f for f in os.listdir(data_path) if pattern.match(f)]
-    
-    for file in files:
+
+    if num_files is None:
+        num_files = len(files)
+
+    for file in files[:num_files]:
         t1_path  = os.path.join(data_path, file, 'T1_MNI.nii.gz')
         fdg_path = os.path.join(data_path, file, 'FDG_MNI.nii.gz')
         t1_imgs  = load_image(t1_path, slices=slices)  # shape: (S, H, W)

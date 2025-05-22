@@ -35,6 +35,8 @@ class LangevinCorrector:
             x_mean: Mean of x before adding noise
         """
         for _ in range(self.n_steps):
+            print("Shape of x:", tf.shape(x))
+            print("Shape of mri:", tf.shape(mri))
             x_concat = tf.concat([x, mri], axis=-1)
             score = self.sde.score_func(x_concat, t)
             # langevin correction step
@@ -62,8 +64,12 @@ def sampler(sde, mri, snr, n_steps, eps=1e-3, denoise=True):
         t = timesteps[i]
         vec_t = tf.ones(mri.shape[0]) * t
         # predictor step (Euler-Maruyama)
+        print("Shape of x:", tf.shape(x))
+        print("Shape of mri:", tf.shape(mri))
         x, x_mean = predictor.update_func(x, vec_t, mri) 
         # corrector step (Langevin dynamics)
+        print("Shape of x:", tf.shape(x))
+        print("Shape of mri:", tf.shape(mri))
         x, x_mean = corrector.update_func(x, vec_t, mri)
 
     return (x_mean if denoise else x)
